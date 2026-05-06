@@ -6,252 +6,61 @@
 <title>📚 EPUB 만들기</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap');
-
   :root {
-    --bg: #f0eee8;
-    --card: #ffffff;
-    --text: #1a1a1a;
-    --subtext: #666;
-    --accent: #2d6a4f;
-    --accent2: #52b788;
-    --border: #ddd;
-    --input-bg: #fafaf8;
-    --btn: #2d6a4f;
-    --btn-text: #fff;
-    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    --bg:#f0eee8; --card:#fff; --text:#1a1a1a; --subtext:#666;
+    --accent:#2d6a4f; --border:#ddd; --input-bg:#fafaf8;
+    --btn:#2d6a4f; --btn-text:#fff; --shadow:0 2px 12px rgba(0,0,0,0.08);
   }
   [data-theme="dark"] {
-    --bg: #141414;
-    --card: #1e1e1e;
-    --text: #e8e6e0;
-    --subtext: #999;
-    --accent: #52b788;
-    --accent2: #95d5b2;
-    --border: #333;
-    --input-bg: #2a2a2a;
-    --btn: #52b788;
-    --btn-text: #0a0a0a;
-    --shadow: 0 2px 12px rgba(0,0,0,0.4);
+    --bg:#141414; --card:#1e1e1e; --text:#e8e6e0; --subtext:#999;
+    --accent:#52b788; --border:#333; --input-bg:#2a2a2a;
+    --btn:#52b788; --btn-text:#0a0a0a; --shadow:0 2px 12px rgba(0,0,0,0.4);
   }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    font-family: 'Noto Sans KR', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    padding: 0 0 80px;
-    transition: background 0.3s, color 0.3s;
-  }
-
-  header {
-    background: var(--card);
-    border-bottom: 1px solid var(--border);
-    padding: 16px 20px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    box-shadow: var(--shadow);
-  }
-  header h1 { font-size: 18px; font-weight: 700; }
-  header span { font-size: 20px; }
-
-  .theme-btn {
-    background: none;
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 5px 12px;
-    font-size: 13px;
-    color: var(--text);
-    cursor: pointer;
-  }
-
-  .container { padding: 16px; max-width: 600px; margin: 0 auto; }
-
-  .card {
-    background: var(--card);
-    border-radius: 16px;
-    padding: 20px;
-    margin-bottom: 14px;
-    box-shadow: var(--shadow);
-    border: 1px solid var(--border);
-  }
-
-  .card-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--accent);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 14px;
-  }
-
-  label { display: block; font-size: 14px; color: var(--subtext); margin-bottom: 6px; }
-
-  input[type="text"], select {
-    width: 100%;
-    padding: 11px 14px;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    font-size: 15px;
-    background: var(--input-bg);
-    color: var(--text);
-    font-family: inherit;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-  input[type="text"]:focus, select:focus { border-color: var(--accent); }
-
-  .file-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    width: 100%;
-    padding: 13px;
-    border: 2px dashed var(--border);
-    border-radius: 12px;
-    background: var(--input-bg);
-    color: var(--subtext);
-    font-size: 14px;
-    cursor: pointer;
-    transition: border-color 0.2s, color 0.2s;
-  }
-  .file-btn:hover, .file-btn.has-file {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-  .file-btn.has-file { background: color-mix(in srgb, var(--accent) 8%, var(--input-bg)); }
-  input[type="file"] { display: none; }
-
-  .pattern-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-top: 4px;
-  }
-  .pattern-chip {
-    padding: 8px 10px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    font-size: 13px;
-    background: var(--input-bg);
-    color: var(--text);
-    cursor: pointer;
-    text-align: center;
-    transition: all 0.15s;
-  }
-  .pattern-chip.active {
-    border-color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 12%, var(--input-bg));
-    color: var(--accent);
-    font-weight: 700;
-  }
-
-  .info-box {
-    background: color-mix(in srgb, var(--accent) 8%, var(--input-bg));
-    border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border));
-    border-radius: 10px;
-    padding: 12px 14px;
-    font-size: 13px;
-    color: var(--subtext);
-    line-height: 1.6;
-  }
-  .info-box strong { color: var(--accent); }
-
-  .make-btn {
-    width: 100%;
-    padding: 16px;
-    background: var(--btn);
-    color: var(--btn-text);
-    border: none;
-    border-radius: 14px;
-    font-size: 16px;
-    font-weight: 700;
-    font-family: inherit;
-    cursor: pointer;
-    transition: opacity 0.2s, transform 0.1s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-  }
-  .make-btn:active { transform: scale(0.98); }
-  .make-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-  .progress-wrap { display: none; }
-  .progress-wrap.show { display: block; }
-  .progress-bar-bg {
-    width: 100%;
-    height: 8px;
-    background: var(--border);
-    border-radius: 4px;
-    overflow: hidden;
-    margin: 12px 0 8px;
-  }
-  .progress-bar {
-    height: 100%;
-    background: var(--accent);
-    border-radius: 4px;
-    width: 0%;
-    transition: width 0.3s;
-  }
-  .progress-text { font-size: 13px; color: var(--subtext); text-align: center; }
-
-  .result-box {
-    display: none;
-    text-align: center;
-    padding: 10px 0 4px;
-  }
-  .result-box.show { display: block; }
-  .result-box .emoji { font-size: 40px; margin-bottom: 8px; }
-  .result-box p { font-size: 14px; color: var(--subtext); margin-bottom: 14px; }
-  .download-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 12px 24px;
-    background: var(--accent);
-    color: var(--btn-text);
-    border-radius: 12px;
-    font-size: 15px;
-    font-weight: 700;
-    text-decoration: none;
-    cursor: pointer;
-    border: none;
-    font-family: inherit;
-  }
-
-  .error-box {
-    display: none;
-    background: #fff0f0;
-    border: 1px solid #ffcdd2;
-    border-radius: 10px;
-    padding: 12px 14px;
-    font-size: 13px;
-    color: #c62828;
-    margin-top: 10px;
-  }
-  .error-box.show { display: block; }
-  [data-theme="dark"] .error-box { background: #2a1515; border-color: #5c2020; color: #ef9a9a; }
-
-  select option { background: var(--card); }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Noto Sans KR',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; padding:0 0 80px; transition:background .3s,color .3s; }
+  header { background:var(--card); border-bottom:1px solid var(--border); padding:16px 20px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; box-shadow:var(--shadow); }
+  header h1 { font-size:18px; font-weight:700; }
+  .theme-btn { background:none; border:1px solid var(--border); border-radius:20px; padding:5px 12px; font-size:13px; color:var(--text); cursor:pointer; }
+  .container { padding:16px; max-width:600px; margin:0 auto; }
+  .card { background:var(--card); border-radius:16px; padding:20px; margin-bottom:14px; box-shadow:var(--shadow); border:1px solid var(--border); }
+  .card-title { font-size:13px; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.05em; margin-bottom:14px; }
+  label { display:block; font-size:14px; color:var(--subtext); margin-bottom:6px; }
+  input[type="text"] { width:100%; padding:11px 14px; border:1px solid var(--border); border-radius:10px; font-size:15px; background:var(--input-bg); color:var(--text); font-family:inherit; outline:none; transition:border-color .2s; }
+  input[type="text"]:focus { border-color:var(--accent); }
+  .file-btn { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:13px; border:2px dashed var(--border); border-radius:12px; background:var(--input-bg); color:var(--subtext); font-size:14px; cursor:pointer; transition:border-color .2s,color .2s; }
+  .file-btn:hover,.file-btn.has-file { border-color:var(--accent); color:var(--accent); }
+  .file-btn.has-file { background:color-mix(in srgb,var(--accent) 8%,var(--input-bg)); }
+  input[type="file"] { display:none; }
+  .pattern-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:4px; }
+  .pattern-chip { padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:13px; background:var(--input-bg); color:var(--text); cursor:pointer; text-align:center; transition:all .15s; user-select:none; }
+  .pattern-chip.active { border-color:var(--accent); background:color-mix(in srgb,var(--accent) 12%,var(--input-bg)); color:var(--accent); font-weight:700; }
+  .info-box { background:color-mix(in srgb,var(--accent) 8%,var(--input-bg)); border:1px solid color-mix(in srgb,var(--accent) 25%,var(--border)); border-radius:10px; padding:12px 14px; font-size:13px; color:var(--subtext); line-height:1.6; }
+  .info-box strong { color:var(--accent); }
+  .make-btn { width:100%; padding:16px; background:var(--btn); color:var(--btn-text); border:none; border-radius:14px; font-size:16px; font-weight:700; font-family:inherit; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; }
+  .make-btn:active { opacity:.85; }
+  .make-btn:disabled { opacity:.5; cursor:not-allowed; }
+  .progress-wrap { display:none; margin-top:14px; }
+  .progress-wrap.show { display:block; }
+  .progress-bar-bg { width:100%; height:8px; background:var(--border); border-radius:4px; overflow:hidden; margin:0 0 8px; }
+  .progress-bar { height:100%; background:var(--accent); border-radius:4px; width:0%; transition:width .3s; }
+  .progress-text { font-size:13px; color:var(--subtext); text-align:center; }
+  .result-box { display:none; text-align:center; padding:14px 0 4px; }
+  .result-box.show { display:block; }
+  .result-box .emoji { font-size:40px; margin-bottom:8px; }
+  .result-box p { font-size:14px; color:var(--subtext); margin-bottom:14px; }
+  .download-btn { display:inline-flex; align-items:center; gap:6px; padding:12px 24px; background:var(--accent); color:var(--btn-text); border-radius:12px; font-size:15px; font-weight:700; cursor:pointer; border:none; font-family:inherit; }
+  .error-box { display:none; background:#fff0f0; border:1px solid #ffcdd2; border-radius:10px; padding:12px 14px; font-size:13px; color:#c62828; margin-top:12px; }
+  .error-box.show { display:block; }
+  [data-theme="dark"] .error-box { background:#2a1515; border-color:#5c2020; color:#ef9a9a; }
 </style>
 </head>
 <body>
-
 <header>
   <h1>📚 EPUB 만들기</h1>
   <button class="theme-btn" onclick="toggleTheme()">🌙 다크</button>
 </header>
-
 <div class="container">
 
-  <!-- 제목/작가 -->
   <div class="card">
     <div class="card-title">📝 작품 정보</div>
     <label>제목</label>
@@ -260,7 +69,6 @@
     <input type="text" id="author" placeholder="예: 김영한"/>
   </div>
 
-  <!-- txt 파일 -->
   <div class="card">
     <div class="card-title">📄 TXT 파일</div>
     <label class="file-btn" id="txtLabel" for="txtFile">
@@ -269,7 +77,6 @@
     <input type="file" id="txtFile" accept=".txt" onchange="onTxtSelect(this)"/>
   </div>
 
-  <!-- 표지 -->
   <div class="card">
     <div class="card-title">🖼️ 표지 이미지 (선택)</div>
     <label class="file-btn" id="coverLabel" for="coverFile">
@@ -278,69 +85,32 @@
     <input type="file" id="coverFile" accept="image/*" onchange="onCoverSelect(this)"/>
   </div>
 
-  <!-- 챕터 패턴 -->
   <div class="card">
     <div class="card-title">🔍 챕터 구분 방식</div>
     <div class="pattern-grid">
       <div class="pattern-chip active" onclick="selectPattern(this,'auto')">🤖 자동감지</div>
       <div class="pattern-chip" onclick="selectPattern(this,'jeN')">제N화</div>
       <div class="pattern-chip" onclick="selectPattern(this,'Ndot')">N화. 제목</div>
-      <div class="pattern-chip" onclick="selectPattern(this,'hashN')"> #N화</div>
+      <div class="pattern-chip" onclick="selectPattern(this,'hashN')">#N화</div>
       <div class="pattern-chip" onclick="selectPattern(this,'Ndash')">N회 - 제목</div>
       <div class="pattern-chip" onclick="selectPattern(this,'equal')">균등분할</div>
     </div>
-    <div id="equalCount" style="display:none; margin-top:12px">
+    <div id="equalCount" style="display:none;margin-top:12px">
       <label>총 화수</label>
       <input type="text" id="chapCount" placeholder="예: 233" style="margin-bottom:0"/>
     </div>
-    <div id="detectedInfo" class="info-box" style="margin-top:12px; display:none"></div>
+    <div id="detectedInfo" class="info-box" style="margin-top:12px;display:none"></div>
   </div>
 
-  <!-- 챕터 제목 색상 -->
-  <div class="card">
-    <div class="card-title">🎨 챕터 제목 색상</div>
-    <div style="font-size:13px;color:var(--subtext);margin-bottom:10px">챕터 제목(1화, 2화...) 글자 색상</div>
-    <div class="pattern-grid">
-      <div class="pattern-chip active" onclick="selectTitleColor(this,'default')">기본 (검정)</div>
-      <div class="pattern-chip" onclick="selectTitleColor(this,'#b22222')" style="color:#b22222;font-weight:700">■ 딥레드</div>
-      <div class="pattern-chip" onclick="selectTitleColor(this,'#7b2ff7')" style="color:#7b2ff7;font-weight:700">■ 보라</div>
-      <div class="pattern-chip" onclick="selectTitleColor(this,'#1a73e8')" style="color:#1a73e8;font-weight:700">■ 블루</div>
-      <div class="pattern-chip" onclick="selectTitleColor(this,'#2d6a4f')" style="color:#2d6a4f;font-weight:700">■ 초록</div>
-      <div class="pattern-chip" onclick="selectTitleColor(this,'#c2185b')" style="color:#c2185b;font-weight:700">■ 핑크</div>
-      <div class="pattern-chip" onclick="selectTitleColor(this,'#e65100')" style="color:#e65100;font-weight:700">■ 오렌지</div>
-      <div class="pattern-chip" onclick="selectTitleColor(this,'#00838f')" style="color:#00838f;font-weight:700">■ 청록</div>
-    </div>
-  </div>
-
-  <!-- 챕터 표지 스타일 -->
-  <div class="card">
-    <div class="card-title">🎨 챕터 표지 페이지</div>
-    <div style="font-size:13px;color:var(--subtext);margin-bottom:10px">각 챕터 시작에 그라데이션 표지 페이지를 넣어요</div>
-    <div class="pattern-grid">
-      <div class="pattern-chip active" onclick="selectTheme(this,'none')">없음</div>
-      <div class="pattern-chip" onclick="selectTheme(this,'purple')" style="background:linear-gradient(135deg,#7b2ff7,#e040fb);color:#fff;border:none">💜 보라핑크</div>
-      <div class="pattern-chip" onclick="selectTheme(this,'blue')" style="background:linear-gradient(135deg,#1a73e8,#7b2ff7);color:#fff;border:none">💙 블루보라</div>
-      <div class="pattern-chip" onclick="selectTheme(this,'pink')" style="background:linear-gradient(135deg,#f06292,#ffb74d);color:#fff;border:none">🌸 핑크살구</div>
-      <div class="pattern-chip" onclick="selectTheme(this,'green')" style="background:linear-gradient(135deg,#2d6a4f,#52b788);color:#fff;border:none">🌿 초록민트</div>
-      <div class="pattern-chip" onclick="selectTheme(this,'dark')" style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#e0e0ff;border:none">🌌 다크네이비</div>
-      <div class="pattern-chip" onclick="selectTheme(this,'rose')" style="background:linear-gradient(135deg,#c2185b,#ff8a65);color:#fff;border:none">🌹 로즈골드</div>
-      <div class="pattern-chip" onclick="selectTheme(this,'sky')" style="background:linear-gradient(135deg,#0288d1,#80deea);color:#fff;border:none">🩵 스카이</div>
-    </div>
-  </div>
-
-  <!-- 만들기 버튼 -->
   <div class="card">
     <button class="make-btn" id="makeBtn" onclick="makeEpub()">
       <span>✨</span> EPUB 만들기
     </button>
-
     <div class="progress-wrap" id="progressWrap">
       <div class="progress-bar-bg"><div class="progress-bar" id="progressBar"></div></div>
       <div class="progress-text" id="progressText">준비 중...</div>
     </div>
-
     <div class="error-box" id="errorBox"></div>
-
     <div class="result-box" id="resultBox">
       <div class="emoji">🎉</div>
       <p id="resultText"></p>
@@ -349,41 +119,10 @@
   </div>
 
 </div>
-
-<!-- JSZip CDN -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-
 <script>
 let selectedPattern = 'auto';
-let selectedTheme = 'none';
-let txtContent = null;
-let coverData = null;
-let coverMime = 'image/jpeg';
-let epubBlob = null;
-
-let selectedTitleColor = 'default';
-
-function selectTitleColor(el, val) {
-  document.querySelectorAll('.card:nth-of-type(5) .pattern-chip').forEach(c => c.classList.remove('active'));
-  el.classList.add('active');
-  selectedTitleColor = val;
-}
-  none: null,
-  purple: { bg: 'linear-gradient(135deg, #7b2ff7 0%, #e040fb 100%)', text: '#ffffff', sub: 'rgba(255,255,255,0.7)' },
-  blue:   { bg: 'linear-gradient(135deg, #1a73e8 0%, #7b2ff7 100%)', text: '#ffffff', sub: 'rgba(255,255,255,0.7)' },
-  pink:   { bg: 'linear-gradient(135deg, #f06292 0%, #ffb74d 100%)', text: '#ffffff', sub: 'rgba(255,255,255,0.7)' },
-  green:  { bg: 'linear-gradient(135deg, #2d6a4f 0%, #52b788 100%)', text: '#ffffff', sub: 'rgba(255,255,255,0.7)' },
-  dark:   { bg: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)', text: '#e0e0ff', sub: 'rgba(200,200,255,0.6)' },
-  rose:   { bg: 'linear-gradient(135deg, #c2185b 0%, #ff8a65 100%)', text: '#ffffff', sub: 'rgba(255,255,255,0.7)' },
-  sky:    { bg: 'linear-gradient(135deg, #0288d1 0%, #80deea 100%)', text: '#ffffff', sub: 'rgba(255,255,255,0.7)' },
-};
-
-function selectTheme(el, val) {
-  document.querySelectorAll('.theme-chip').forEach(c => { c.style.outline = 'none'; c.classList.remove('active'); });
-  el.classList.add('active');
-  if (el.dataset.colored) el.style.outline = '3px solid white';
-  selectedTheme = val;
-}
+let txtContent = null, coverData = null, coverMime = 'image/jpeg', epubBlob = null;
 
 function toggleTheme() {
   const d = document.documentElement;
@@ -401,325 +140,154 @@ function selectPattern(el, val) {
 }
 
 function onTxtSelect(input) {
-  const file = input.files[0];
-  if (!file) return;
+  const file = input.files[0]; if (!file) return;
   document.getElementById('txtName').textContent = file.name;
   document.getElementById('txtLabel').classList.add('has-file');
-  // 제목 자동 채우기
   if (!document.getElementById('title').value) {
-    let name = file.name.replace(/\.[^/.]+$/, '').replace(/[_\-]/g, ' ').replace(/^\[.*?\]\s*/, '').trim();
-    document.getElementById('title').value = name;
+    document.getElementById('title').value = file.name.replace(/\.[^/.]+$/, '').replace(/[_\-]/g,' ').replace(/^\[.*?\]\s*/,'').trim();
   }
-  const reader = new FileReader();
-  reader.onload = e => {
-    txtContent = e.target.result;
-    detectChapters(txtContent);
-  };
-  reader.readAsText(file, 'UTF-8');
+  const r = new FileReader();
+  r.onload = e => { txtContent = e.target.result; detectChapters(txtContent); };
+  r.readAsText(file, 'UTF-8');
 }
 
 function onCoverSelect(input) {
-  const file = input.files[0];
-  if (!file) return;
+  const file = input.files[0]; if (!file) return;
   document.getElementById('coverName').textContent = file.name;
   document.getElementById('coverLabel').classList.add('has-file');
   coverMime = file.type || 'image/jpeg';
-  const reader = new FileReader();
-  reader.onload = e => { coverData = e.target.result.split(',')[1]; };
-  reader.readAsDataURL(file);
+  const r = new FileReader();
+  r.onload = e => { coverData = e.target.result.split(',')[1]; };
+  r.readAsDataURL(file);
 }
 
-function detectChapters(content) {
-  const patterns = {
-    'jeN':   { re: /^제\d+화.*$/m,   label: '제N화' },
-    'Ndot':  { re: /^\d+화\..+$/m,   label: 'N화. 제목' },
-    'hashN': { re: /^#\d+화.*$/m,    label: '#N화' },
-    'Ndash': { re: /^\d+회\s*[-–].+$/m, label: 'N회 - 제목' },
-  };
+const reMap = {
+  jeN:   /^(제\d+화.*)$/m,
+  Ndot:  /^(\d+화\..+)$/m,
+  hashN: /^(#\d+화.*)$/m,
+  Ndash: /^(\d+회\s*[-–].+)$/m,
+};
 
+function detectChapters(content) {
   let pat = selectedPattern;
   if (pat === 'auto') {
     let best = null, bestCount = 0;
-    for (const [k, v] of Object.entries(patterns)) {
-      const count = (content.match(new RegExp(v.re.source, 'gm')) || []).length;
-      if (count > bestCount) { bestCount = count; best = k; }
+    for (const [k, re] of Object.entries(reMap)) {
+      const n = (content.match(new RegExp(re.source,'gm'))||[]).length;
+      if (n > bestCount) { bestCount = n; best = k; }
     }
     pat = best || 'equal';
   }
-
-  if (pat === 'equal') {
-    document.getElementById('detectedInfo').style.display = 'block';
-    document.getElementById('detectedInfo').innerHTML = `<strong>균등분할 모드</strong> — 화수를 직접 입력해주세요.`;
-    return;
-  }
-
-  const reMap = {
-    'jeN':   /^(제\d+화.*)$/m,
-    'Ndot':  /^(\d+화\..+)$/m,
-    'hashN': /^(#\d+화.*)$/m,
-    'Ndash': /^(\d+회\s*[-–].+)$/m,
-  };
-
-  const re = reMap[pat];
-  if (!re) return;
-  const matches = content.match(new RegExp(re.source, 'gm')) || [];
   const box = document.getElementById('detectedInfo');
   box.style.display = 'block';
-  if (matches.length > 0) {
-    box.innerHTML = `<strong>${matches.length}개 챕터 감지됨</strong> (${matches[0]} ... ${matches[matches.length-1]})`;
-  } else {
-    box.innerHTML = `⚠️ 챕터를 찾을 수 없어요. 다른 방식을 선택해보세요.`;
-  }
+  if (pat === 'equal') { box.innerHTML = '<strong>균등분할 모드</strong> — 화수를 입력해주세요.'; return; }
+  const matches = content.match(new RegExp(reMap[pat].source,'gm')) || [];
+  box.innerHTML = matches.length > 0
+    ? `<strong>${matches.length}개 챕터 감지됨</strong> (${matches[0]} ... ${matches[matches.length-1]})`
+    : '⚠️ 챕터를 찾을 수 없어요. 다른 방식을 선택해보세요.';
 }
 
-function escapeHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-function textToHtmlBody(text) {
-  return text.split('\n').map(p => {
-    p = p.trim();
-    return p ? `<p>${escapeHtml(p)}</p>` : `<p class="blank"> </p>`;
-  }).join('\n');
-}
-
-function makeChapterCoverXhtml(title, theme) {
-  const t = THEMES[theme];
+function makeXhtml(title, body) {
+  const ps = body.split('\n').map(p => { p=p.trim(); return p ? `<p>${esc(p)}</p>` : '<p class="blank"> </p>'; }).join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ko">
-<head><meta charset="UTF-8"/><title>${escapeHtml(title)}</title>
-<style>
-html,body{margin:0;padding:0;width:100%;height:100%;}
-.cover{width:100%;min-height:100vh;background:${t.bg};display:flex;flex-direction:column;justify-content:center;padding:10% 8%;}
-.chap-num{font-size:2.5em;font-weight:900;color:${t.text};margin-bottom:0.3em;font-family:serif;}
-.chap-title{font-size:1.1em;font-weight:700;color:${t.text};margin-bottom:0.5em;font-family:serif;}
-.chap-sub{font-size:0.85em;color:${t.sub};font-family:serif;}
-</style>
-</head><body>
-<div class="cover">
-<div class="chap-num">${escapeHtml(title.match(/^[^\s]*/)?.[0] || title)}</div>
-<div class="chap-title">${escapeHtml(title)}</div>
-</div>
-</body></html>`;
-}
-
-function makeChapterXhtml(title, body) {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ko">
-<head><meta charset="UTF-8"/><title>${escapeHtml(title)}</title>
+<head><meta charset="UTF-8"/><title>${esc(title)}</title>
 <link rel="stylesheet" type="text/css" href="../Styles/style.css"/>
 </head><body>
-<h2 class="chapter-title">${escapeHtml(title)}</h2>
-${textToHtmlBody(body)}
+<h2 class="chapter-title">${esc(title)}</h2>
+${ps}
 </body></html>`;
 }
 
 function splitChapters(content) {
   let pat = selectedPattern;
-
-  const reMap = {
-    'jeN':   /^(제\d+화.*)$/m,
-    'Ndot':  /^(\d+화\..+)$/m,
-    'hashN': /^(#\d+화.*)$/m,
-    'Ndash': /^(\d+회\s*[-–].+)$/m,
-  };
-
   if (pat === 'auto') {
     let best = null, bestCount = 0;
     for (const [k, re] of Object.entries(reMap)) {
-      const count = (content.match(new RegExp(re.source, 'gm')) || []).length;
-      if (count > bestCount) { bestCount = count; best = k; }
+      const n = (content.match(new RegExp(re.source,'gm'))||[]).length;
+      if (n > bestCount) { bestCount = n; best = k; }
     }
     pat = best || 'equal';
   }
-
   if (pat === 'equal') {
     const n = parseInt(document.getElementById('chapCount').value) || 100;
-    const total = content.length;
-    const chunk = Math.floor(total / n);
-    const chapters = [];
-    let start = 0;
+    const total = content.length, chunk = Math.floor(total/n);
+    const chapters = []; let start = 0;
     for (let i = 0; i < n; i++) {
-      const end = i === n-1 ? total : (() => {
-        const target = start + chunk;
-        const seg = content.substring(Math.max(start, target-500), Math.min(total, target+500));
+      const end = i===n-1 ? total : (() => {
+        const target = start+chunk;
+        const seg = content.substring(Math.max(start,target-500), Math.min(total,target+500));
         const idx = seg.lastIndexOf('\n\n', 500);
-        return Math.max(start, target-500) + (idx >= 0 ? idx+2 : 500);
+        return Math.max(start,target-500) + (idx>=0 ? idx+2 : 500);
       })();
-      chapters.push([`제${i+1}화`, content.substring(start, end).trim()]);
+      chapters.push([`제${i+1}화`, content.substring(start,end).trim()]);
       start = end;
     }
     return chapters;
   }
-
-  const re = new RegExp(reMap[pat].source, 'gm');
-  const splits = [...content.matchAll(re)];
-  if (splits.length === 0) throw new Error('챕터를 찾을 수 없어요. 다른 방식을 선택해보세요.');
-  return splits.map((m, i) => {
-    const title = m[1].trim();
-    const start = m.index + m[0].length;
-    const end = i+1 < splits.length ? splits[i+1].index : content.length;
-    return [title, content.substring(start, end).trim()];
-  });
+  const splits = [...content.matchAll(new RegExp(reMap[pat].source,'gm'))];
+  if (!splits.length) throw new Error('챕터를 찾을 수 없어요. 다른 방식을 선택해보세요.');
+  return splits.map((m,i) => [m[1].trim(), content.substring(m.index+m[0].length, i+1<splits.length?splits[i+1].index:content.length).trim()]);
 }
 
 async function makeEpub() {
-  const errorBox = document.getElementById('errorBox');
-  const resultBox = document.getElementById('resultBox');
-  errorBox.className = 'error-box';
-  resultBox.className = 'result-box';
-
+  document.getElementById('errorBox').className = 'error-box';
+  document.getElementById('resultBox').className = 'result-box';
   const title = document.getElementById('title').value.trim() || '무제';
   const author = document.getElementById('author').value.trim() || '작자미상';
-
   if (!txtContent) { showError('TXT 파일을 선택해주세요.'); return; }
-
   const btn = document.getElementById('makeBtn');
   btn.disabled = true;
   showProgress(0, '챕터 분석 중...');
-
   try {
     const chapters = splitChapters(txtContent);
     showProgress(10, `챕터 ${chapters.length}개 확인됨`);
-
-    const titleColorCss = selectedTitleColor === 'default' ? '#1a1a1a' : selectedTitleColor;
-    const css = `body { font-family: "나눔명조","NanumMyeongjo",Georgia,serif; font-size:1em; line-height:1.9; margin:1.5em 1.2em; color:#1a1a1a; background:#fffdf8; }
-h2.chapter-title { font-size:1.1em; font-weight:bold; margin:1.5em 0 1em; text-align:center; border-bottom:1px solid #ccc; padding-bottom:.5em; color:${titleColorCss}; }
-p { margin:.3em 0; } p.blank { margin:.1em 0; color:transparent; }`;
-
-    const coverXhtml = `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ko">
-<head><meta charset="UTF-8"/><title>${escapeHtml(title)}</title>
-<style>body{margin:0;padding:0;}img{width:100%;height:auto;display:block;}</style>
-</head><body><img src="../Images/cover.jpg" alt="표지"/></body></html>`;
-
-    const uid = title.replace(/\s/g,'') + '-epub';
-
-    // TOC
-    const tocItems = chapters.map(([t,], i) =>
-      `    <navPoint id="np${i+1}" playOrder="${i+1}"><navLabel><text>${escapeHtml(t)}</text></navLabel><content src="Text/chap${String(i+1).padStart(4,'0')}.xhtml"/></navPoint>`
-    ).join('\n');
-
-    const tocNcx = `<?xml version="1.0" encoding="UTF-8"?>
-<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
-<head><meta name="dtb:uid" content="${escapeHtml(uid)}"/><meta name="dtb:depth" content="1"/><meta name="dtb:totalPageCount" content="0"/><meta name="dtb:maxPageNumber" content="0"/></head>
-<docTitle><text>${escapeHtml(title)}</text></docTitle>
-<navMap>
-  <navPoint id="np-cover" playOrder="0"><navLabel><text>표지</text></navLabel><content src="Text/cover.xhtml"/></navPoint>
-${tocItems}
-</navMap>
-</ncx>`;
-
+    const css = `body{font-family:"나눔명조","NanumMyeongjo",Georgia,serif;font-size:1em;line-height:1.9;margin:1.5em 1.2em;color:#1a1a1a;background:#fffdf8;}
+h2.chapter-title{font-size:1.1em;font-weight:bold;margin:1.5em 0 1em;text-align:center;border-bottom:1px solid #ccc;padding-bottom:.5em;}
+p{margin:.3em 0;}p.blank{margin:.1em 0;color:transparent;}`;
     const hasCover = !!coverData;
-    const hasChapCover = selectedTheme !== 'none';
-
-    const manifestItems = [
-      hasCover ? `  <item id="cover-img" href="Images/cover.jpg" media-type="${coverMime}"/>` : '',
-      `  <item id="cover" href="Text/cover.xhtml" media-type="application/xhtml+xml"/>`,
-      `  <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>`,
-      `  <item id="css" href="Styles/style.css" media-type="text/css"/>`,
-      ...chapters.flatMap(([,], i) => [
-        hasChapCover ? `  <item id="ccover${String(i+1).padStart(4,'0')}" href="Text/ccover${String(i+1).padStart(4,'0')}.xhtml" media-type="application/xhtml+xml"/>` : '',
-        `  <item id="chap${String(i+1).padStart(4,'0')}" href="Text/chap${String(i+1).padStart(4,'0')}.xhtml" media-type="application/xhtml+xml"/>`
-      ])
-    ].filter(Boolean).join('\n');
-
-    const spineItems = [
-      `    <itemref idref="cover"/>`,
-      ...chapters.flatMap(([,], i) => [
-        hasChapCover ? `    <itemref idref="ccover${String(i+1).padStart(4,'0')}"/>` : '',
-        `    <itemref idref="chap${String(i+1).padStart(4,'0')}"/>`
-      ])
-    ].filter(Boolean).join('\n');
-
-    const opf = `<?xml version="1.0" encoding="UTF-8"?>
-<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookId" version="2.0">
-<metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
-  <dc:title>${escapeHtml(title)}</dc:title>
-  <dc:creator opf:role="aut">${escapeHtml(author)}</dc:creator>
-  <dc:language>ko</dc:language>
-  <dc:identifier id="BookId">${escapeHtml(uid)}</dc:identifier>
-  ${hasCover ? '<meta name="cover" content="cover-img"/>' : ''}
-</metadata>
-<manifest>
-${manifestItems}
-</manifest>
-<spine toc="ncx">
-${spineItems}
-</spine>
-</package>`;
-
-    const container = `<?xml version="1.0" encoding="UTF-8"?>
-<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
-  <rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles>
-</container>`;
-
-    // ZIP 생성
+    const uid = title.replace(/\s/g,'')+'-epub';
+    const coverXhtml = `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ko"><head><meta charset="UTF-8"/><title>${esc(title)}</title><style>body{margin:0;padding:0;}img{width:100%;height:auto;display:block;}</style></head><body><img src="../Images/cover.jpg" alt="표지"/></body></html>`;
+    const tocItems = chapters.map(([t,],i) => `    <navPoint id="np${i+1}" playOrder="${i+1}"><navLabel><text>${esc(t)}</text></navLabel><content src="Text/chap${String(i+1).padStart(4,'0')}.xhtml"/></navPoint>`).join('\n');
+    const tocNcx = `<?xml version="1.0" encoding="UTF-8"?><ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1"><head><meta name="dtb:uid" content="${esc(uid)}"/><meta name="dtb:depth" content="1"/><meta name="dtb:totalPageCount" content="0"/><meta name="dtb:maxPageNumber" content="0"/></head><docTitle><text>${esc(title)}</text></docTitle><navMap><navPoint id="np-cover" playOrder="0"><navLabel><text>표지</text></navLabel><content src="Text/cover.xhtml"/></navPoint>\n${tocItems}\n</navMap></ncx>`;
+    const mi = [hasCover?`  <item id="cover-img" href="Images/cover.jpg" media-type="${coverMime}"/>`:'',`  <item id="cover" href="Text/cover.xhtml" media-type="application/xhtml+xml"/>`,`  <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>`,`  <item id="css" href="Styles/style.css" media-type="text/css"/>`,...chapters.map(([,],i)=>`  <item id="chap${String(i+1).padStart(4,'0')}" href="Text/chap${String(i+1).padStart(4,'0')}.xhtml" media-type="application/xhtml+xml"/>`)].filter(Boolean).join('\n');
+    const si = [`    <itemref idref="cover"/>`,...chapters.map(([,],i)=>`    <itemref idref="chap${String(i+1).padStart(4,'0')}"/>`)].join('\n');
+    const opf = `<?xml version="1.0" encoding="UTF-8"?><package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookId" version="2.0"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf"><dc:title>${esc(title)}</dc:title><dc:creator opf:role="aut">${esc(author)}</dc:creator><dc:language>ko</dc:language><dc:identifier id="BookId">${esc(uid)}</dc:identifier>${hasCover?'<meta name="cover" content="cover-img"/>':''}</metadata><manifest>\n${mi}\n</manifest><spine toc="ncx">\n${si}\n</spine></package>`;
+    const container = `<?xml version="1.0" encoding="UTF-8"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>`;
     const zip = new JSZip();
-    zip.file('mimetype', 'application/epub+zip', {compression: 'STORE'});
-    zip.file('META-INF/container.xml', container);
-    zip.file('OEBPS/content.opf', opf);
-    zip.file('OEBPS/toc.ncx', tocNcx);
-    zip.file('OEBPS/Styles/style.css', css);
-    zip.file('OEBPS/Text/cover.xhtml', coverXhtml);
-    if (hasCover) {
-      zip.file('OEBPS/Images/cover.jpg', coverData, {base64: true});
+    zip.file('mimetype','application/epub+zip',{compression:'STORE'});
+    zip.file('META-INF/container.xml',container);
+    zip.file('OEBPS/content.opf',opf);
+    zip.file('OEBPS/toc.ncx',tocNcx);
+    zip.file('OEBPS/Styles/style.css',css);
+    zip.file('OEBPS/Text/cover.xhtml',coverXhtml);
+    if (hasCover) zip.file('OEBPS/Images/cover.jpg',coverData,{base64:true});
+    showProgress(20,'챕터 생성 중...');
+    for (let i=0;i<chapters.length;i++) {
+      zip.file(`OEBPS/Text/chap${String(i+1).padStart(4,'0')}.xhtml`, makeXhtml(chapters[i][0],chapters[i][1]));
+      if (i%20===0) { showProgress(20+Math.floor(i/chapters.length*70),`챕터 생성 중... (${i+1}/${chapters.length})`); await new Promise(r=>setTimeout(r,0)); }
     }
-
-    showProgress(20, '챕터 생성 중...');
-    for (let i = 0; i < chapters.length; i++) {
-      const [t, b] = chapters[i];
-      if (hasChapCover) {
-        zip.file(`OEBPS/Text/ccover${String(i+1).padStart(4,'0')}.xhtml`, makeChapterCoverXhtml(t, selectedTheme));
-      }
-      zip.file(`OEBPS/Text/chap${String(i+1).padStart(4,'0')}.xhtml`, makeChapterXhtml(t, b));
-      if (i % 20 === 0) {
-        const pct = 20 + Math.floor((i / chapters.length) * 70);
-        showProgress(pct, `챕터 생성 중... (${i+1}/${chapters.length})`);
-        await new Promise(r => setTimeout(r, 0));
-      }
-    }
-
-    showProgress(90, 'EPUB 파일 압축 중...');
-    await new Promise(r => setTimeout(r, 50));
-
-    epubBlob = await zip.generateAsync({type: 'blob', mimeType: 'application/epub+zip'});
-
-    showProgress(100, '완료!');
-    await new Promise(r => setTimeout(r, 300));
-
-    document.getElementById('progressWrap').className = 'progress-wrap';
-    const mb = (epubBlob.size / 1024 / 1024).toFixed(1);
-    document.getElementById('resultText').textContent = `${title} — ${chapters.length}화, ${mb} MB`;
-    document.getElementById('downloadBtn').onclick = () => {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(epubBlob);
-      a.download = `${title}.epub`;
-      a.click();
-    };
-    resultBox.className = 'result-box show';
-
+    showProgress(90,'EPUB 압축 중...');
+    await new Promise(r=>setTimeout(r,50));
+    epubBlob = await zip.generateAsync({type:'blob',mimeType:'application/epub+zip'});
+    showProgress(100,'완료!');
+    await new Promise(r=>setTimeout(r,300));
+    document.getElementById('progressWrap').className='progress-wrap';
+    document.getElementById('resultText').textContent=`${title} — ${chapters.length}화, ${(epubBlob.size/1024/1024).toFixed(1)} MB`;
+    document.getElementById('downloadBtn').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(epubBlob);a.download=`${title}.epub`;a.click();};
+    document.getElementById('resultBox').className='result-box show';
   } catch(e) {
-    document.getElementById('progressWrap').className = 'progress-wrap';
-    showError(e.message || '오류가 발생했어요.');
+    document.getElementById('progressWrap').className='progress-wrap';
+    showError(e.message||'오류가 발생했어요.');
   }
-  btn.disabled = false;
+  btn.disabled=false;
 }
 
-function showProgress(pct, msg) {
-  document.getElementById('progressWrap').className = 'progress-wrap show';
-  document.getElementById('progressBar').style.width = pct + '%';
-  document.getElementById('progressText').textContent = msg;
-}
-
-function showError(msg) {
-  const box = document.getElementById('errorBox');
-  box.textContent = '⚠️ ' + msg;
-  box.className = 'error-box show';
-}
+function showProgress(pct,msg){document.getElementById('progressWrap').className='progress-wrap show';document.getElementById('progressBar').style.width=pct+'%';document.getElementById('progressText').textContent=msg;}
+function showError(msg){const b=document.getElementById('errorBox');b.textContent='⚠️ '+msg;b.className='error-box show';}
 </script>
 </body>
 </html>
