@@ -296,6 +296,38 @@
     <div id="detectedInfo" class="info-box" style="margin-top:12px; display:none"></div>
   </div>
 
+  <!-- 챕터 제목 색상 -->
+  <div class="card">
+    <div class="card-title">🎨 챕터 제목 색상</div>
+    <div style="font-size:13px;color:var(--subtext);margin-bottom:10px">챕터 제목(1화, 2화...) 글자 색상</div>
+    <div class="pattern-grid">
+      <div class="pattern-chip active" onclick="selectTitleColor(this,'default')">기본 (검정)</div>
+      <div class="pattern-chip" onclick="selectTitleColor(this,'#b22222')" style="color:#b22222;font-weight:700">■ 딥레드</div>
+      <div class="pattern-chip" onclick="selectTitleColor(this,'#7b2ff7')" style="color:#7b2ff7;font-weight:700">■ 보라</div>
+      <div class="pattern-chip" onclick="selectTitleColor(this,'#1a73e8')" style="color:#1a73e8;font-weight:700">■ 블루</div>
+      <div class="pattern-chip" onclick="selectTitleColor(this,'#2d6a4f')" style="color:#2d6a4f;font-weight:700">■ 초록</div>
+      <div class="pattern-chip" onclick="selectTitleColor(this,'#c2185b')" style="color:#c2185b;font-weight:700">■ 핑크</div>
+      <div class="pattern-chip" onclick="selectTitleColor(this,'#e65100')" style="color:#e65100;font-weight:700">■ 오렌지</div>
+      <div class="pattern-chip" onclick="selectTitleColor(this,'#00838f')" style="color:#00838f;font-weight:700">■ 청록</div>
+    </div>
+  </div>
+
+  <!-- 챕터 표지 스타일 -->
+  <div class="card">
+    <div class="card-title">🎨 챕터 표지 페이지</div>
+    <div style="font-size:13px;color:var(--subtext);margin-bottom:10px">각 챕터 시작에 그라데이션 표지 페이지를 넣어요</div>
+    <div class="pattern-grid">
+      <div class="pattern-chip active" onclick="selectTheme(this,'none')">없음</div>
+      <div class="pattern-chip" onclick="selectTheme(this,'purple')" style="background:linear-gradient(135deg,#7b2ff7,#e040fb);color:#fff;border:none">💜 보라핑크</div>
+      <div class="pattern-chip" onclick="selectTheme(this,'blue')" style="background:linear-gradient(135deg,#1a73e8,#7b2ff7);color:#fff;border:none">💙 블루보라</div>
+      <div class="pattern-chip" onclick="selectTheme(this,'pink')" style="background:linear-gradient(135deg,#f06292,#ffb74d);color:#fff;border:none">🌸 핑크살구</div>
+      <div class="pattern-chip" onclick="selectTheme(this,'green')" style="background:linear-gradient(135deg,#2d6a4f,#52b788);color:#fff;border:none">🌿 초록민트</div>
+      <div class="pattern-chip" onclick="selectTheme(this,'dark')" style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#e0e0ff;border:none">🌌 다크네이비</div>
+      <div class="pattern-chip" onclick="selectTheme(this,'rose')" style="background:linear-gradient(135deg,#c2185b,#ff8a65);color:#fff;border:none">🌹 로즈골드</div>
+      <div class="pattern-chip" onclick="selectTheme(this,'sky')" style="background:linear-gradient(135deg,#0288d1,#80deea);color:#fff;border:none">🩵 스카이</div>
+    </div>
+  </div>
+
   <!-- 만들기 버튼 -->
   <div class="card">
     <button class="make-btn" id="makeBtn" onclick="makeEpub()">
@@ -323,10 +355,35 @@
 
 <script>
 let selectedPattern = 'auto';
+let selectedTheme = 'none';
 let txtContent = null;
 let coverData = null;
 let coverMime = 'image/jpeg';
 let epubBlob = null;
+
+let selectedTitleColor = 'default';
+
+function selectTitleColor(el, val) {
+  document.querySelectorAll('.card:nth-of-type(5) .pattern-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  selectedTitleColor = val;
+}
+  none: null,
+  purple: { bg: 'linear-gradient(135deg, #7b2ff7 0%, #e040fb 100%)', text: '#ffffff', sub: 'rgba(255,255,255,0.7)' },
+  blue:   { bg: 'linear-gradient(135deg, #1a73e8 0%, #7b2ff7 100%)', text: '#ffffff', sub: 'rgba(255,255,255,0.7)' },
+  pink:   { bg: 'linear-gradient(135deg, #f06292 0%, #ffb74d 100%)', text: '#ffffff', sub: 'rgba(255,255,255,0.7)' },
+  green:  { bg: 'linear-gradient(135deg, #2d6a4f 0%, #52b788 100%)', text: '#ffffff', sub: 'rgba(255,255,255,0.7)' },
+  dark:   { bg: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)', text: '#e0e0ff', sub: 'rgba(200,200,255,0.6)' },
+  rose:   { bg: 'linear-gradient(135deg, #c2185b 0%, #ff8a65 100%)', text: '#ffffff', sub: 'rgba(255,255,255,0.7)' },
+  sky:    { bg: 'linear-gradient(135deg, #0288d1 0%, #80deea 100%)', text: '#ffffff', sub: 'rgba(255,255,255,0.7)' },
+};
+
+function selectTheme(el, val) {
+  document.querySelectorAll('.theme-chip').forEach(c => { c.style.outline = 'none'; c.classList.remove('active'); });
+  el.classList.add('active');
+  if (el.dataset.colored) el.style.outline = '3px solid white';
+  selectedTheme = val;
+}
 
 function toggleTheme() {
   const d = document.documentElement;
@@ -426,6 +483,27 @@ function textToHtmlBody(text) {
   }).join('\n');
 }
 
+function makeChapterCoverXhtml(title, theme) {
+  const t = THEMES[theme];
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ko">
+<head><meta charset="UTF-8"/><title>${escapeHtml(title)}</title>
+<style>
+html,body{margin:0;padding:0;width:100%;height:100%;}
+.cover{width:100%;min-height:100vh;background:${t.bg};display:flex;flex-direction:column;justify-content:center;padding:10% 8%;}
+.chap-num{font-size:2.5em;font-weight:900;color:${t.text};margin-bottom:0.3em;font-family:serif;}
+.chap-title{font-size:1.1em;font-weight:700;color:${t.text};margin-bottom:0.5em;font-family:serif;}
+.chap-sub{font-size:0.85em;color:${t.sub};font-family:serif;}
+</style>
+</head><body>
+<div class="cover">
+<div class="chap-num">${escapeHtml(title.match(/^[^\s]*/)?.[0] || title)}</div>
+<div class="chap-title">${escapeHtml(title)}</div>
+</div>
+</body></html>`;
+}
+
 function makeChapterXhtml(title, body) {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
@@ -506,8 +584,9 @@ async function makeEpub() {
     const chapters = splitChapters(txtContent);
     showProgress(10, `챕터 ${chapters.length}개 확인됨`);
 
+    const titleColorCss = selectedTitleColor === 'default' ? '#1a1a1a' : selectedTitleColor;
     const css = `body { font-family: "나눔명조","NanumMyeongjo",Georgia,serif; font-size:1em; line-height:1.9; margin:1.5em 1.2em; color:#1a1a1a; background:#fffdf8; }
-h2.chapter-title { font-size:1.1em; font-weight:bold; margin:1.5em 0 1em; text-align:center; border-bottom:1px solid #ccc; padding-bottom:.5em; }
+h2.chapter-title { font-size:1.1em; font-weight:bold; margin:1.5em 0 1em; text-align:center; border-bottom:1px solid #ccc; padding-bottom:.5em; color:${titleColorCss}; }
 p { margin:.3em 0; } p.blank { margin:.1em 0; color:transparent; }`;
 
     const coverXhtml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -535,18 +614,26 @@ ${tocItems}
 </ncx>`;
 
     const hasCover = !!coverData;
+    const hasChapCover = selectedTheme !== 'none';
+
     const manifestItems = [
       hasCover ? `  <item id="cover-img" href="Images/cover.jpg" media-type="${coverMime}"/>` : '',
       `  <item id="cover" href="Text/cover.xhtml" media-type="application/xhtml+xml"/>`,
       `  <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>`,
       `  <item id="css" href="Styles/style.css" media-type="text/css"/>`,
-      ...chapters.map(([,], i) => `  <item id="chap${String(i+1).padStart(4,'0')}" href="Text/chap${String(i+1).padStart(4,'0')}.xhtml" media-type="application/xhtml+xml"/>`)
+      ...chapters.flatMap(([,], i) => [
+        hasChapCover ? `  <item id="ccover${String(i+1).padStart(4,'0')}" href="Text/ccover${String(i+1).padStart(4,'0')}.xhtml" media-type="application/xhtml+xml"/>` : '',
+        `  <item id="chap${String(i+1).padStart(4,'0')}" href="Text/chap${String(i+1).padStart(4,'0')}.xhtml" media-type="application/xhtml+xml"/>`
+      ])
     ].filter(Boolean).join('\n');
 
     const spineItems = [
       `    <itemref idref="cover"/>`,
-      ...chapters.map(([,], i) => `    <itemref idref="chap${String(i+1).padStart(4,'0')}"/>`)
-    ].join('\n');
+      ...chapters.flatMap(([,], i) => [
+        hasChapCover ? `    <itemref idref="ccover${String(i+1).padStart(4,'0')}"/>` : '',
+        `    <itemref idref="chap${String(i+1).padStart(4,'0')}"/>`
+      ])
+    ].filter(Boolean).join('\n');
 
     const opf = `<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookId" version="2.0">
@@ -585,6 +672,9 @@ ${spineItems}
     showProgress(20, '챕터 생성 중...');
     for (let i = 0; i < chapters.length; i++) {
       const [t, b] = chapters[i];
+      if (hasChapCover) {
+        zip.file(`OEBPS/Text/ccover${String(i+1).padStart(4,'0')}.xhtml`, makeChapterCoverXhtml(t, selectedTheme));
+      }
       zip.file(`OEBPS/Text/chap${String(i+1).padStart(4,'0')}.xhtml`, makeChapterXhtml(t, b));
       if (i % 20 === 0) {
         const pct = 20 + Math.floor((i / chapters.length) * 70);
