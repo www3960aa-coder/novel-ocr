@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EPUB 생성기</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;600&family=Noto+Sans+KR:wght@300;400;500&display=swap');
+
+  :root {
+    --bg: #0e0b16;
+    --surface: #1a1525;
+    --surface2: #241d35;
+    --accent: #c084fc;
+    --accent2: #a855f7;
+    --text: #e8e0f0;
+    --text-muted: #9986b3;
+    --border: #3d2f5a;
+    --success: #86efac;
+    --error: #f87171;
+    --warn: #fbbf24;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh;
+    padding: 24px 16px 40px;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+
+  .title {
+    font-family: 'Noto Serif KR', serif;
+    font-size: 26px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+
+  .subtitle {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px;
+    margin-bottom: 14px;
+  }
+
+  .card-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .card-title::before {
+    content: '';
+    display: inline-block;
+    width: 3px;
+    height: 13px;
+    background: var(--accent);
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  /* 입력 필드 */
+  input[type="text"], textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 14px;
+    padding: 11px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input[type="text"]:focus, textarea:focus {
+    border-color: var(--accent2);
+  }
+
+  input[type="text"]::placeholder, textarea::placeholder {
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .field-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+  }
+
+  /* 파일 슬롯 */
+  .file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .file-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface2);
+    border: 1.5px dashed var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    position: relative;
+    transition: all 0.2s;
+  }
+
+  .file-item.loaded {
+    border-style: solid;
+    border-color: var(--accent2);
+    background: rgba(168,85,247,0.08);
+  }
+
+  .file-item input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+
+  .file-num {
+    width: 24px;
+    height: 24px;
+    background: var(--border);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  .file-item.loaded .file-num {
+    background: var(--accent2);
+    color: white;
+  }
+
+  .file-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .file-name {
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .file-item.loaded .file-name {
+    color: var(--text);
+  }
+
+  .file-part {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  .btn-remove-file {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 2px 6px;
+    line-height: 1;
+    position: relative;
+    z-index: 1;
+    flex-shrink: 0;
+  }
+
+  .btn-add-file {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: none;
+    border: 1.5px dashed var(--border);
+    border-radius: 10px;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-family: 'Noto Sans KR', sans-serif;
+    padding: 10px;
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.2s;
+    margin-top: 4px;
+  }
+
+  .btn-add-file:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* 표지 */
+  .cover-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--surface2);
+    border: 1.5px dashed var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    position: relative;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+
+  .cover-row.loaded { border-style: solid; border-color: var(--accent2); }
+  .cover-row input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+
+  .cover-thumb {
+    width: 40px;
+    height: 56px;
+    background: var(--border);
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+
+  .cover-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: none;
+  }
+
+  .cover-thumb img.show { display: block; }
+
+  /* 목차 영역 */
+  .toc-hint {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    line-height: 1.7;
+    padding: 9px 12px;
+    background: rgba(255,255,255,0.02);
+    border-radius: 8px;
+  }
+
+  .toc-hint code {
+    background: rgba(192,132,252,0.15);
+    color: var(--accent);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 11px;
+  }
+
+  textarea.toc-input {
+    min-height: 160px;
+    resize: vertical;
+    font-size: 13px;
+    line-height: 1.8;
+  }
+
+  .toc-preview {
+    margin-top: 10px;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+
+  .toc-preview-item {
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 3px 6px;
+    border-left: 2px solid var(--border);
+    margin-bottom: 2px;
+  }
+
+  .toc-preview-item.is-vol {
+    color: var(--accent);
+    border-left-color: var(--accent2);
+    font-weight: 500;
+    margin-top: 8px;
+  }
+
+  .toc-count {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 6px;
+    text-align: right;
+  }
+
+  /* 분할 모드 */
+  .split-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .split-opt {
+    padding: 10px;
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+
+  .split-opt.active {
+    border-color: var(--accent2);
+    background: rgba(168,85,247,0.12);
+  }
+
+  .split-opt-title {
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 3px;
+  }
+
+  .split-opt-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  input[type="text"].pattern-input {
+    margin-top: 8px;
+  }
+
+  /* 버튼 */
+  .btn-generate {
+    width: 100%;
+    padding: 15px;
+    background: linear-gradient(135deg, var(--accent2), #7c3aed);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 500;
+    font-family: 'Noto Sans KR', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 6px;
+  }
+
+  .btn-generate:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(168,85,247,0.4);
+  }
+
+  .btn-generate:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .progress-bar {
+    height: 3px;
+    background: var(--border);
+    border-radius: 3px;
+    margin-top: 10px;
+    overflow: hidden;
+    display: none;
+  }
+
+  .progress-bar.show { display: block; }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    border-radius: 3px;
+    transition: width 0.3s;
+    width: 0%;
+  }
+
+  .status {
+    margin-top: 10px;
+    padding: 11px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    display: none;
+    line-height: 1.6;
+  }
+
+  .status.show { display: block; }
+  .status.processing { background: rgba(192,132,252,0.1); border: 1px solid var(--border); color: var(--text-muted); }
+  .status.success { background: rgba(134,239,172,0.1); border: 1px solid rgba(134,239,172,0.3); color: var(--success); }
+  .status.error { background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: var(--error); }
+
+  .tab-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .tab {
+    flex: 1;
+    padding: 8px;
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-size: 12px;
+    font-family: 'Noto Sans KR', sans-serif;
+    color: var(--text-muted);
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+  }
+
+  .tab.active {
+    border-color: var(--accent2);
+    background: rgba(168,85,247,0.12);
+    color: var(--accent);
+    font-weight: 500;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="title">📚 EPUB 생성기</div>
+  <div class="subtitle">텍스트 파일을 epub으로 · 어떤 소설이든</div>
+</div>
+
+<!-- 기본 정보 -->
+<div class="card">
+  <div class="card-title">소설 정보</div>
+  <div class="field-row">
+    <div>
+      <div class="field-label">제목 *</div>
+      <input type="text" id="book-title" placeholder="소설 제목" />
+    </div>
+    <div>
+      <div class="field-label">작가</div>
+      <input type="text" id="book-author" placeholder="작가명" />
+    </div>
+  </div>
+  <div>
+    <div class="field-label">저장 파일명</div>
+    <input type="text" id="book-filename" placeholder="자동 입력됨" />
+  </div>
+</div>
+
+<!-- 표지 -->
+<div class="card">
+  <div class="card-title">표지 이미지 (선택)</div>
+  <div class="cover-row" id="cover-row">
+    <input type="file" accept="image/*" onchange="loadCover(this)" />
+    <div class="cover-thumb" id="cover-thumb">
+      🎨
+      <img id="cover-img" alt="표지" />
+    </div>
+    <div>
+      <div style="font-size:13px;" id="cover-label">이미지 선택</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">jpg, png 등</div>
+    </div>
+  </div>
+</div>
+
+<!-- 텍스트 파일 -->
+<div class="card">
+  <div class="card-title">텍스트 파일</div>
+  <div class="tab-row">
+    <div class="tab active" onclick="setFileMode('single')" id="tab-single">파일 1개</div>
+    <div class="tab" onclick="setFileMode('multi')" id="tab-multi">파일 여러 개</div>
+  </div>
+
+  <div id="file-area">
+    <!-- JS로 렌더 -->
+  </div>
+</div>
+
+<!-- 목차 -->
+<div class="card">
+  <div class="card-title">목차</div>
+  <div class="tab-row">
+    <div class="tab active" onclick="setTocMode('manual')" id="tab-toc-manual">직접 입력</div>
+    <div class="tab" onclick="setTocMode('auto')" id="tab-toc-auto">자동 감지</div>
+  </div>
+
+  <div id="toc-manual-area">
+    <div class="toc-hint">
+      한 줄에 챕터 하나씩 입력하세요.<br>
+      <code>[권/파트 구분]</code> 으로 묶을 수 있어요. 예시:<br>
+      <code>[1권]</code><br>
+      <code>프롤로그</code><br>
+      <code>01. 첫 번째 챕터</code><br>
+      <code>[2권]</code><br>
+      <code>08. 챕터 제목</code>
+    </div>
+    <textarea class="toc-input" id="toc-text" placeholder="목차를 입력하세요..." oninput="parseToc()"></textarea>
+    <div class="toc-preview" id="toc-preview"></div>
+    <div class="toc-count" id="toc-count"></div>
+  </div>
+
+  <div id="toc-auto-area" style="display:none;">
+    <div class="toc-hint">
+      파일 내에서 챕터를 자동으로 찾아요.<br>
+      챕터 시작 패턴을 지정하면 더 정확해요.
+    </div>
+    <div class="split-options">
+      <div class="split-opt active" onclick="setSplitOpt('number')" id="split-number">
+        <div class="split-opt-title">숫자 패턴</div>
+        <div class="split-opt-desc">01. / 제1화 / Chapter 1</div>
+      </div>
+      <div class="split-opt" onclick="setSplitOpt('custom')" id="split-custom">
+        <div class="split-opt-title">직접 지정</div>
+        <div class="split-opt-desc">구분 텍스트 입력</div>
+      </div>
+    </div>
+    <input type="text" class="pattern-input" id="custom-pattern" placeholder="예: ===== 또는 ◆" style="display:none;" />
+  </div>
+</div>
+
+<!-- 생성 -->
+<button class="btn-generate" id="btn-gen" onclick="generateEpub()">
+  📦 EPUB 생성하기
+</button>
+
+<div class="progress-bar" id="progress-bar">
+  <div class="progress-fill" id="progress-fill"></div>
+</div>
+<div class="status" id="status-msg"></div>
+
+<script>
+// 상태
+let fileMode = 'single'; // single | multi
+let tocMode = 'manual';  // manual | auto
+let splitOpt = 'number'; // number | custom
+let coverDataUrl = null;
+let coverExt = 'jpeg';
+let loadedFiles = []; // [{name, text}]
+let parsedToc = []; // [{type:'vol'|'ch', title, volTitle?}]
+
+// 제목 입력시 파일명 자동
+document.getElementById('book-title').addEventListener('input', function() {
+  const v = this.value.trim();
+  const author = document.getElementById('book-author').value.trim();
+  document.getElementById('book-filename').placeholder = v ? `${v}${author?'_'+author:''}_合.epub` : '자동 입력됨';
+});
+
+// 파일 모드
+function setFileMode(mode) {
+  fileMode = mode;
+  document.getElementById('tab-single').classList.toggle('active', mode==='single');
+  document.getElementById('tab-multi').classList.toggle('active', mode==='multi');
+  renderFileArea();
+}
+
+function renderFileArea() {
+  const area = document.getElementById('file-area');
+  if (fileMode === 'single') {
+    area.innerHTML = `
+      <div class="file-item${loadedFiles[0]?' loaded':''}" id="file-slot-0">
+        <input type="file" accept=".txt" onchange="loadSingleFile(this)" />
+        <div class="file-num">${loadedFiles[0]?'✓':'1'}</div>
+        <div class="file-info">
+          <div class="file-name">${loadedFiles[0]?loadedFiles[0].name:'파일 선택 또는 터치'}</div>
+          <div class="file-part">전체 텍스트 1개 파일</div>
+        </div>
+      </div>`;
+  } else {
+    let html = '<div class="file-list" id="file-list">';
+    loadedFiles.forEach((f,i) => {
+      html += `<div class="file-item loaded">
+        <div class="file-num">✓</div>
+        <div class="file-info">
+          <div class="file-name">${f.name}</div>
+          <div class="file-part">${i+1}번째 파트</div>
+        </div>
+        <button class="btn-remove-file" onclick="removeFile(${i})">×</button>
+      </div>`;
+    });
+    html += `</div>
+    <button class="btn-add-file" onclick="document.getElementById('multi-input').click()">
+      + 파일 추가
+    </button>
+    <input type="file" id="multi-input" accept=".txt" multiple style="display:none" onchange="loadMultiFile(this)" />`;
+    area.innerHTML = html;
+  }
+}
+
+function loadSingleFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  readTxt(file, text => {
+    loadedFiles = [{name: file.name, text}];
+    // 제목/작가 자동 추출 시도
+    const title = document.getElementById('book-title').value;
+    if (!title) {
+      const nameClean = file.name.replace(/\.txt$/i,'').replace(/[_\[\]]/g,' ').trim();
+      document.getElementById('book-title').value = nameClean;
+    }
+    renderFileArea();
+  });
+}
+
+function loadMultiFile(input) {
+  const files = Array.from(input.files);
+  let done = 0;
+  files.forEach(file => {
+    readTxt(file, text => {
+      loadedFiles.push({name: file.name, text});
+      done++;
+      if (done === files.length) renderFileArea();
+    });
+  });
+  input.value = '';
+}
+
+function removeFile(idx) {
+  loadedFiles.splice(idx, 1);
+  renderFileArea();
+}
+
+function readTxt(file, cb) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    let text = e.target.result;
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+    cb(text);
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// 표지
+function loadCover(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    coverDataUrl = e.target.result;
+    coverExt = (file.name.match(/\.(\w+)$/) || ['','jpeg'])[1].toLowerCase();
+    if (coverExt === 'jpg') coverExt = 'jpeg';
+    const img = document.getElementById('cover-img');
+    img.src = coverDataUrl;
+    img.classList.add('show');
+    document.getElementById('cover-thumb').childNodes[0].textContent = '';
+    document.getElementById('cover-row').classList.add('loaded');
+    document.getElementById('cover-label').textContent = '✅ ' + file.name;
+  };
+  reader.readAsDataURL(file);
+}
+
+// 목차 모드
+function setTocMode(mode) {
+  tocMode = mode;
+  document.getElementById('tab-toc-manual').classList.toggle('active', mode==='manual');
+  document.getElementById('tab-toc-auto').classList.toggle('active', mode==='auto');
+  document.getElementById('toc-manual-area').style.display = mode==='manual'?'':'none';
+  document.getElementById('toc-auto-area').style.display = mode==='auto'?'':'none';
+}
+
+function setSplitOpt(opt) {
+  splitOpt = opt;
+  document.getElementById('split-number').classList.toggle('active', opt==='number');
+  document.getElementById('split-custom').classList.toggle('active', opt==='custom');
+  document.getElementById('custom-pattern').style.display = opt==='custom'?'':'none';
+}
+
+// 목차 파싱
+function parseToc() {
+  const raw = document.getElementById('toc-text').value;
+  const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
+  parsedToc = [];
+  let currentVol = null;
+
+  for (const line of lines) {
+    if (line.startsWith('[') && line.endsWith(']')) {
+      currentVol = line.slice(1,-1);
+      parsedToc.push({type:'vol', title: currentVol});
+    } else {
+      parsedToc.push({type:'ch', title: line, vol: currentVol});
+    }
+  }
+
+  // 미리보기
+  const preview = document.getElementById('toc-preview');
+  const chCount = parsedToc.filter(i=>i.type==='ch').length;
+
+  if (parsedToc.length === 0) {
+    preview.innerHTML = '';
+    document.getElementById('toc-count').textContent = '';
+    return;
+  }
+
+  preview.innerHTML = parsedToc.map(item => {
+    if (item.type === 'vol') return `<div class="toc-preview-item is-vol">📂 ${item.title}</div>`;
+    return `<div class="toc-preview-item">${item.title}</div>`;
+  }).join('');
+
+  document.getElementById('toc-count').textContent = `총 ${chCount}개 챕터`;
+}
+
+// XML 이스케이프
+function esc(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+}
+
+// 텍스트→HTML
+function textToXhtml(text, title) {
+  const lines = text.split('\n');
+  let body = '';
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t) body += '<p class="empty"> </p>\n';
+    else body += `<p>${esc(t)}</p>\n`;
+  }
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ko">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+  <title>${esc(title)}</title>
+  <link rel="stylesheet" type="text/css" href="../css/style.css"/>
+</head>
+<body>
+<h1 class="ch-title">${esc(title)}</h1>
+${body}
+</body>
+</html>`;
+}
+
+// 자동 분할
+function autoSplit(text) {
+  if (splitOpt === 'number') {
+    // 숫자 챕터 패턴: 01. / 제1화 / Chapter 1 / 1화 / 1장
+    const pattern = /(?:^|\n)(?=\s*(?:\d{1,3}[\.\.\s화장]|제\d+[화장]|chapter\s*\d+|프롤로그|에필로그|외전\d*|IF\s*에피|보너스))/im;
+    const parts = text.split(pattern).filter(p=>p.trim());
+    return parts.map(p => {
+      const firstLine = p.split('\n')[0].trim() || '챕터';
+      return { title: firstLine, content: p.trim() };
+    });
+  } else {
+    const sep = document.getElementById('custom-pattern').value.trim();
+    if (!sep) return [{ title: '전체', content: text }];
+    const parts = text.split(sep).filter(p=>p.trim());
+    return parts.map((p,i) => {
+      const firstLine = p.split('\n')[0].trim() || `챕터 ${i+1}`;
+      return { title: firstLine, content: p.trim() };
+    });
+  }
+}
+
+// 텍스트를 목차 기준으로 분할
+function splitByToc(fullText, chapters) {
+  // 챕터별로 위치 찾기
+  const positions = [];
+  for (const ch of chapters) {
+    // 제목의 핵심 키워드로 검색
+    const keyword = ch.title.replace(/^\d+[\.\s]+/, '').trim().slice(0, 10);
+    const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(^|\\n)[^\\n]*${escaped}`, 'i');
+    const match = fullText.search(regex);
+    positions.push(match >= 0 ? match : -1);
+  }
+
+  const result = [];
+  for (let i = 0; i < chapters.length; i++) {
+    const start = positions[i] >= 0 ? positions[i] : (i === 0 ? 0 : -1);
+    if (start < 0) {
+      result.push({ ...chapters[i], content: `[${chapters[i].title}]` });
+      continue;
+    }
+    const end = (() => {
+      for (let j = i+1; j < chapters.length; j++) {
+        if (positions[j] > start) return positions[j];
+      }
+      return fullText.length;
+    })();
+    result.push({ ...chapters[i], content: fullText.slice(start, end).trim() });
+  }
+  return result;
+}
+
+// EPUB 생성
+async function generateEpub() {
+  const btn = document.getElementById('btn-gen');
+  btn.disabled = true;
+  document.getElementById('progress-bar').classList.add('show');
+  setProgress(5);
+
+  try {
+    const bookTitle = document.getElementById('book-title').value.trim() || '소설';
+    const bookAuthor = document.getElementById('book-author').value.trim() || '';
+    const rawFilename = document.getElementById('book-filename').value.trim();
+    const filename = rawFilename || `${bookTitle}${bookAuthor?'_'+bookAuthor:''}_合.epub`;
+
+    if (loadedFiles.length === 0) {
+      showStatus('❌ 텍스트 파일을 먼저 선택해주세요.', 'error');
+      btn.disabled = false;
+      return;
+    }
+
+    showStatus('⏳ EPUB 생성 중...', 'processing');
+
+    // 전체 텍스트 합치기 (멀티 파일이면 순서대로)
+    const fullText = loadedFiles.map(f => f.text).join('\n\n');
+
+    // 챕터 목록 결정
+    let chapters = []; // [{id, title, vol?, content}]
+
+    if (tocMode === 'manual' && parsedToc.length > 0) {
+      const chItems = parsedToc.filter(i => i.type === 'ch');
+      if (chItems.length > 0) {
+        // 파일이 여러 개이면 파트별로 할당, 아니면 전체에서 분할
+        if (fileMode === 'multi' && loadedFiles.length > 1) {
+          // 챕터를 파일 수로 균등 분배 시도
+          // 파트 구분([권]) 기준으로 파일 매핑
+          const volGroups = [];
+          let cur = [];
+          for (const item of parsedToc) {
+            if (item.type === 'vol') {
+              if (cur.length) volGroups.push(cur);
+              cur = [];
+            } else {
+              cur.push(item);
+            }
+          }
+          if (cur.length) volGroups.push(cur);
+
+          let fileIdx = 0;
+          let chIdx = 0;
+          for (const group of volGroups) {
+            const txt = loadedFiles[fileIdx]?.text || fullText;
+            const groupChs = group.map((item, i) => ({
+              id: `ch_${chIdx+i}`,
+              title: item.title,
+              vol: item.vol
+            }));
+            const split = splitByToc(txt, groupChs);
+            chapters.push(...split);
+            chIdx += group.length;
+            fileIdx++;
+          }
+        } else {
+          // 단일 파일에서 목차 기준 분할
+          const chItemsWithId = chItems.map((item, i) => ({
+            id: `ch_${i}`,
+            title: item.title,
+            vol: item.vol
+          }));
+          chapters = splitByToc(fullText, chItemsWithId);
+        }
+      }
+    } else {
+      // 자동 감지
+      const parts = autoSplit(fullText);
+      chapters = parts.map((p, i) => ({
+        id: `ch_${i}`,
+        title: p.title,
+        content: p.content
+      }));
+    }
+
+    if (chapters.length === 0) {
+      chapters = [{ id: 'ch_0', title: bookTitle, content: fullText }];
+    }
+
+    setProgress(30);
+
+    const zip = new JSZip();
+    zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
+    zip.folder('META-INF').file('container.xml', `<?xml version="1.0"?>
+<container version="1.0" xmlns="urn:oasis:schemas:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>`);
+
+    const oebps = zip.folder('OEBPS');
+    const textF = oebps.folder('text');
+    const cssF = oebps.folder('css');
+    const imgF = oebps.folder('images');
+
+    cssF.file('style.css', `@charset "UTF-8";
+body{font-family:"Noto Serif KR","나눔명조","Malgun Gothic",serif;font-size:1em;line-height:2.1;margin:1.5em 1.2em;color:#1a1a1a;word-break:keep-all;}
+h1.ch-title{font-size:1.3em;font-weight:bold;margin:1em 0 1.5em;text-align:center;border-bottom:1px solid #ccc;padding-bottom:.5em;color:#2a1a3a;}
+p{margin:.2em 0;text-indent:1em;}
+p.empty{text-indent:0;margin:.5em 0;}
+`);
+
+    setProgress(40);
+
+    const manifest = [];
+    const spine = [];
+    let navOrder = 1;
+
+    // 표지
+    if (coverDataUrl) {
+      const b64 = coverDataUrl.split(',')[1];
+      const mime = coverDataUrl.match(/data:(image\/\w+)/)?.[1] || 'image/jpeg';
+      imgF.file(`cover.${coverExt}`, b64, { base64: true });
+      textF.file('cover.xhtml', `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ko"><head><title>표지</title>
+<style type="text/css">body{margin:0;padding:0;text-align:center;}img{max-width:100%;max-height:100%;}</style></head>
+<body><img src="../images/cover.${coverExt}" alt="표지"/></body></html>`);
+      manifest.push(`<item id="cover-page" href="text/cover.xhtml" media-type="application/xhtml+xml"/>`);
+      manifest.push(`<item id="cover-img" href="images/cover.${coverExt}" media-type="${mime}" properties="cover-image"/>`);
+      spine.push(`<itemref idref="cover-page"/>`);
+    }
+
+    // 챕터 HTML
+    for (let i = 0; i < chapters.length; i++) {
+      setProgress(40 + (i / chapters.length) * 40);
+      const ch = chapters[i];
+      const fname = `${ch.id}.xhtml`;
+      textF.file(fname, textToXhtml(ch.content || ch.title, ch.title));
+      manifest.push(`<item id="${ch.id}" href="text/${fname}" media-type="application/xhtml+xml"/>`);
+      spine.push(`<itemref idref="${ch.id}"/>`);
+    }
+
+    setProgress(82);
+
+    // NCX
+    let navPts = '';
+    if (coverDataUrl) {
+      navPts += `<navPoint id="np-cover" playOrder="${navOrder++}"><navLabel><text>표지</text></navLabel><content src="text/cover.xhtml"/></navPoint>\n`;
+    }
+
+    // 권 구조 반영
+    const vols = {};
+    for (const ch of chapters) {
+      const v = ch.vol || '__none__';
+      if (!vols[v]) vols[v] = [];
+      vols[v].push(ch);
+    }
+
+    if (Object.keys(vols).length === 1 && vols['__none__']) {
+      for (const ch of chapters) {
+        navPts += `<navPoint id="np-${ch.id}" playOrder="${navOrder++}"><navLabel><text>${esc(ch.title)}</text></navLabel><content src="text/${ch.id}.xhtml"/></navPoint>\n`;
+      }
+    } else {
+      for (const [vol, chs] of Object.entries(vols)) {
+        if (vol === '__none__') {
+          for (const ch of chs) {
+            navPts += `<navPoint id="np-${ch.id}" playOrder="${navOrder++}"><navLabel><text>${esc(ch.title)}</text></navLabel><content src="text/${ch.id}.xhtml"/></navPoint>\n`;
+          }
+        } else {
+          navPts += `<navPoint id="np-vol-${navOrder}" playOrder="${navOrder++}"><navLabel><text>${esc(vol)}</text></navLabel><content src="text/${chs[0].id}.xhtml">\n`;
+          for (const ch of chs) {
+            navPts += `<navPoint id="np-${ch.id}" playOrder="${navOrder++}"><navLabel><text>${esc(ch.title)}</text></navLabel><content src="text/${ch.id}.xhtml"/></navPoint>\n`;
+          }
+          navPts += `</content></navPoint>\n`;
+        }
+      }
+    }
+
+    manifest.push(`<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>`);
+    manifest.push(`<item id="css" href="css/style.css" media-type="text/css"/>`);
+
+    oebps.file('toc.ncx', `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE ncx PUBLIC "-//NISO//DTD ncx 2005-1//EN" "http://www.daisy.org/z3986/2005/ncx-2005-1.dtd">
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+<head><meta name="dtb:uid" content="epub-${Date.now()}"/><meta name="dtb:depth" content="2"/><meta name="dtb:totalPageCount" content="0"/><meta name="dtb:maxPageNumber" content="0"/></head>
+<docTitle><text>${esc(bookTitle)}</text></docTitle>
+<navMap>${navPts}</navMap>
+</ncx>`);
+
+    const now = new Date().toISOString().slice(0,10);
+    oebps.file('content.opf', `<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="bookid">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+    <dc:title>${esc(bookTitle)}</dc:title>
+    ${bookAuthor?`<dc:creator opf:role="aut">${esc(bookAuthor)}</dc:creator>`:''}
+    <dc:language>ko</dc:language>
+    <dc:identifier id="bookid">epub-${Date.now()}</dc:identifier>
+    <dc:date>${now}</dc:date>
+  </metadata>
+  <manifest>
+    ${manifest.join('\n    ')}
+  </manifest>
+  <spine toc="ncx">
+    ${spine.join('\n    ')}
+  </spine>
+</package>`);
+
+    setProgress(92);
+
+    const blob = await zip.generateAsync({
+      type: 'blob',
+      mimeType: 'application/epub+zip',
+      compression: 'DEFLATE',
+      compressionOptions: { level: 6 }
+    }, m => setProgress(92 + m.percent * 0.08));
+
+    setProgress(100);
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename.endsWith('.epub') ? filename : filename + '.epub';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+
+    showStatus(`✅ 완료! 총 ${chapters.length}개 챕터로 EPUB 생성되었습니다.\n파일명: ${a.download}`, 'success');
+
+  } catch(err) {
+    console.error(err);
+    showStatus('❌ 오류: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    setTimeout(() => { setProgress(0); document.getElementById('progress-bar').classList.remove('show'); }, 3000);
+  }
+}
+
+function setProgress(pct) {
+  document.getElementById('progress-fill').style.width = pct + '%';
+}
+
+function showStatus(msg, type) {
+  const el = document.getElementById('status-msg');
+  el.textContent = msg;
+  el.className = 'status show ' + type;
+}
+
+// 초기 렌더
+renderFileArea();
+</script>
+</body>
+</html>
