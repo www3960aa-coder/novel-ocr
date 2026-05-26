@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>✨ 꾸미기 생성기</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700&display=swap');
+  :root {
+    --bg:#0d0d1a;--card:#151528;--border:#2a2a4a;
+    --a1:#b48ef7;--a2:#f7a8d4;--a3:#8ef7e8;--a4:#f7d98e;
+    --text:#e8e0ff;--muted:#7070a0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;min-height:100vh;padding:20px 16px 60px;}
+  body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(1px 1px at 20% 30%,rgba(180,142,247,.5) 0%,transparent 100%),radial-gradient(1px 1px at 65% 15%,rgba(247,168,212,.4) 0%,transparent 100%),radial-gradient(1px 1px at 80% 65%,rgba(142,247,232,.35) 0%,transparent 100%);pointer-events:none;z-index:0;}
+  .wrap{position:relative;z-index:1;max-width:500px;margin:0 auto;}
+  h1{text-align:center;font-size:1.3rem;font-weight:700;margin-bottom:4px;background:linear-gradient(135deg,var(--a1),var(--a2),var(--a3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+  .sub{text-align:center;font-size:.75rem;color:var(--muted);margin-bottom:20px;}
+
+  .box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px;margin-bottom:10px;}
+  .blabel{font-size:.73rem;color:var(--a1);display:block;margin-bottom:7px;letter-spacing:.07em;}
+  input[type=text]{width:100%;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:1rem;padding:10px 12px;outline:none;transition:border-color .2s;}
+  input[type=text]:focus{border-color:var(--a1);}
+  input[type=text]::placeholder{color:var(--muted);}
+
+  /* 로마자 변환 */
+  .roman-box{background:var(--card);border:1px solid rgba(247,217,142,.3);border-radius:14px;padding:14px;margin-bottom:10px;}
+  .roman-label{font-size:.73rem;color:var(--a4);margin-bottom:8px;}
+  .btn-roman{width:100%;padding:10px;border-radius:10px;border:1px solid rgba(247,217,142,.35);background:rgba(247,217,142,.07);color:var(--a4);font-family:inherit;font-size:.88rem;font-weight:700;cursor:pointer;transition:all .2s;}
+  .btn-roman:active{background:rgba(247,217,142,.18);}
+  .roman-opts{margin-top:10px;display:flex;flex-wrap:wrap;gap:7px;}
+  .roman-chip{padding:6px 13px;border-radius:999px;border:1px solid rgba(142,247,232,.4);background:rgba(142,247,232,.07);color:var(--a3);font-size:.82rem;cursor:pointer;transition:all .2s;}
+  .roman-chip.sel{background:rgba(142,247,232,.2);border-color:var(--a3);font-weight:700;}
+  .roman-hint{font-size:.7rem;color:var(--muted);margin-top:6px;}
+
+  /* 팔레트 */
+  .pal-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px;margin-bottom:10px;}
+  .pal-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+  .ptab{padding:4px 11px;border-radius:999px;font-size:.72rem;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .2s;}
+  .ptab.on{border-color:var(--a2);color:var(--a2);background:rgba(247,168,212,.1);}
+  .pgrid{display:flex;flex-wrap:wrap;gap:4px;}
+  .psym{width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.03);color:var(--text);font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+  .psym:active{background:rgba(180,142,247,.2);border-color:var(--a1);transform:scale(.9);}
+  .phint{font-size:.68rem;color:var(--muted);margin-top:7px;}
+
+  /* 스타일 칩 */
+  .slabel{font-size:.72rem;color:var(--muted);margin-bottom:8px;letter-spacing:.07em;}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px;}
+  .chip{padding:6px 13px;border-radius:999px;font-size:.78rem;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;transition:all .2s;user-select:none;}
+  .chip.on{border-color:var(--a1);color:var(--a1);background:rgba(180,142,247,.1);}
+
+  .btn-gen{width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--a1),var(--a2));color:#0d0d1a;font-family:inherit;font-size:1rem;font-weight:700;cursor:pointer;transition:opacity .2s,transform .1s;margin-bottom:22px;}
+  .btn-gen:active{transform:scale(.97);opacity:.9;}
+
+  .results{display:flex;flex-direction:column;gap:11px;}
+  .rcard{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;animation:fi .3s ease both;}
+  @keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .rhead{padding:8px 14px;background:rgba(255,255,255,.03);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+  .rlabel{font-size:.7rem;color:var(--muted);}
+  .bcopy{padding:4px 12px;border-radius:999px;border:1px solid var(--border);background:transparent;color:var(--a3);font-family:inherit;font-size:.72rem;cursor:pointer;transition:all .2s;}
+  .bcopy.done{color:#7fff7f;border-color:#7fff7f;}
+  .rbody{padding:14px;font-size:.95rem;line-height:2;white-space:pre-wrap;word-break:break-all;color:var(--text);}
+  .empty{text-align:center;color:var(--muted);font-size:.85rem;padding:30px 0;}
+
+  .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--a1);color:#0d0d1a;padding:10px 24px;border-radius:999px;font-size:.85rem;font-weight:700;opacity:0;transition:all .3s;pointer-events:none;z-index:999;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>✦ 꾸미기 제목 생성기 ✦</h1>
+  <p class="sub">폰트변환 · 장식틀 · 특수기호 팔레트</p>
+
+  <div class="box">
+    <span class="blabel">제목 또는 닉네임</span>
+    <input type="text" id="inp" placeholder="예: Special, Yejuha, 가지믈..." maxlength="60">
+  </div>
+
+  <div class="roman-box">
+    <div class="roman-label">🔤 한국어 → 영어 로마자 변환 <span style="color:var(--muted)">— 오프라인 작동</span></div>
+    <button class="btn-roman" onclick="doRoman()">✦ 영어로 변환하기</button>
+    <div id="romanRes"></div>
+  </div>
+
+  <div class="pal-box">
+    <span class="blabel" style="color:var(--a2);">✦ 특수기호 팔레트 <span style="color:var(--muted);font-weight:400">— 탭하면 입력칸에 삽입</span></span>
+    <div class="pal-tabs" id="palTabs"></div>
+    <div class="pgrid" id="palGrid"></div>
+    <div class="phint">기호 탭 → 커서 위치에 바로 삽입</div>
+  </div>
+
+  <div class="slabel">폰트 스타일 선택</div>
+  <div class="chips" id="fontChips">
+    <div class="chip on" data-f="cursive">🌸 필기체</div>
+    <div class="chip on" data-f="gothic">🖤 고딕체</div>
+    <div class="chip on" data-f="circled">⭕ 동그라미</div>
+    <div class="chip on" data-f="squared">🔲 네모</div>
+    <div class="chip on" data-f="bsquared">⬛ 검은네모</div>
+    <div class="chip on" data-f="double">💎 이중선</div>
+  </div>
+
+  <div class="slabel">장식틀 선택</div>
+  <div class="chips" id="frameChips">
+    <div class="chip on" data-fr="preset">✦ 고정틀</div>
+    <div class="chip on" data-fr="light">🌤 가벼운틀</div>
+    <div class="chip on" data-fr="crown">👑 왕관틀</div>
+    <div class="chip on" data-fr="moon">🌙 달빛틀</div>
+    <div class="chip on" data-fr="flower">🌹 장미틀</div>
+    <div class="chip on" data-fr="star">⭐ 별틀</div>
+  </div>
+
+  <button class="btn-gen" onclick="generate()">✨ 꾸미기 생성하기</button>
+
+  <div class="results" id="results">
+    <div class="empty">제목 입력 후 생성하기 눌러봐요 🌙</div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ── 특수기호 팔레트 ───────────────────────────────────────────
+const PALS = [
+  { name:'𓂃 이집트', s:['𓂃','𓈒','𓏸','𓊝','𓊞','𓆩','𓆪','𓆉','𓅿','𓅼','𓃠','𓃟','𓅂','𓆏','𓆸','𓇼','𓈀','𓈃','𓉔','𓉡','𓊈','𓊉','𓏺','𓏻','𓏼','𓏽','𓐍','𓐎','𓐏','𓄿','𖡼','𖤘','𖤓','𖦹','𖣂','𖣯','𖥦','𖤐','𖠋','𖠁'] },
+  { name:'༄ 티베트', s:['༄','༅','༆','༇','༈','༉','༊','།','༌','་','༒','༓','༔','༕','༖','༗','༘','༙','༚','༛','꧁','꧂','꧃','꧄','꧅','꧆','꧇','꧈','꧉','꧊','𒆜','𒀭','𒁖','𒀱','𒆸','𒁈','𒅃','𒆳','𒇻','𒀸'] },
+  { name:'✦ 별·점', s:['✦','✧','✩','✪','✫','✬','✭','✮','✯','✰','⭐','🌟','💫','⚡','☆','★','✨','✵','✶','✷','·','•','◦','‥','…','⁕','⁎','⁑','※','⊹','°','჻','᛫','⸰','⸱','⋆','⁺','₊','˖','ᵎ'] },
+  { name:'❦ 장식', s:['❦','❧','☙','✿','❀','❁','❂','❃','❄','❅','❆','✾','✽','✼','✻','✺','✹','✸','✷','✶','彡','ミ','〰','～','〜','꫶','᪥','᪤','᪣','᪢','𖹭','𖹤','𖹣','𖹢','𖹡','𖹠','𖹟','𖹞','𖹝','𖹜'] },
+  { name:'◈ 도형', s:['◈','◇','◆','◉','○','●','◎','□','■','▪','▫','▬','△','▲','▽','▼','◁','◀','▷','▶','◊','⬡','⬢','⬣','【','】','〖','〗','〔','〕','「','」','『','』','《','》','〈','〉','❮','❯'] },
+  { name:'🌙 달·하늘', s:['🌙','☽','☾','🌛','🌜','🌝','🌚','🌕','🌑','☁️','⛅','🌈','❄','🌊','💧','༺','༻','⌬','⌭','⌮','⌯','⌰','⌱','⌲','⌳','𖡺','𖡻','𖡼','𖡽','𖡾','𖡿','𖢀','𖢁','𖢂','𖢃','𖢄','𖢅','𖢆','𖢇','𖢈'] },
+  { name:'💜 하트·감성', s:['💜','🖤','🤍','💙','💗','💓','💞','💕','❤','🩷','♡','♥','❣','💔','𖤍','𖤣','𖤥','𖤦','𖤧','⚜','👑','💎','🔮','🪄','🗝','⚔','🛡','🪬','🧿','🌹','🌸','🌺','🌻','🌼','🍀','🌿','🪷','💐','🌾'] },
+  { name:'숫자·문자', s:['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫','⑬','⑭','⑮','⑯','⑰','⑱','⑲','⑳','❶','❷','❸','❹','❺','❻','❼','❽','❾','❿','⓫','⓬','⓭','⓮','⓯','⓰','⓱','⓲','⓳','⓴'] },
+  { name:'로마·기호', s:['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ','Ⅹ','Ⅺ','Ⅻ','㊀','㊁','㊂','㊃','㊄','㊅','㊆','㊇','㊈','㊉','⑴','⑵','⑶','⑷','⑸','⒜','⒝','⒞','⒟','⒠','⚙','⚗','⚖','⚕','⚛','⚜','⚝','⚠'] },
+];
+let palCat = 0;
+function renderPalTabs() {
+  document.getElementById('palTabs').innerHTML = PALS.map((p,i)=>`<button class="ptab${i===palCat?' on':''}" onclick="palSwitch(${i})">${p.name}</button>`).join('');
+}
+function renderPalGrid() {
+  document.getElementById('palGrid').innerHTML = PALS[palCat].s.map(s=>`<button class="psym" onclick="palInsert(this)">${s}</button>`).join('');
+}
+function palSwitch(i){ palCat=i; renderPalTabs(); renderPalGrid(); }
+function palInsert(btn) {
+  const sym = btn.textContent;
+  const inp = document.getElementById('inp');
+  inp.focus();
+  const st = inp.selectionStart ?? inp.value.length;
+  const en = inp.selectionEnd ?? inp.value.length;
+  inp.value = inp.value.slice(0,st) + sym + inp.value.slice(en);
+  const np = st + [...sym].length;
+  inp.setSelectionRange(np,np);
+  inp.style.borderColor='var(--a2)';
+  setTimeout(()=>inp.style.borderColor='',300);
+}
+renderPalTabs(); renderPalGrid();
+
+// ── 로마자 변환 ───────────────────────────────────────────────
+const ON=['g','kk','n','d','tt','r','m','b','pp','s','ss','','j','jj','ch','k','t','p','h'];
+const VW=['a','ae','ya','yae','eo','e','yeo','ye','o','wa','wae','oe','yo','u','wo','we','wi','yu','eu','ui','i'];
+const CD=['','g','kk','gs','n','nj','nh','d','l','lg','lm','lb','ls','lt','lp','lh','m','b','bs','s','ss','ng','j','ch','k','t','p','h'];
+function sylRom(code){
+  if(code<0xAC00||code>0xD7A3)return null;
+  const s=code-0xAC00,ci=s%28,vi=Math.floor(s/28)%21,oi=Math.floor(s/28/21);
+  return ON[oi]+VW[vi]+CD[ci];
+}
+function korToRom(str){let r='';for(const c of str){const x=sylRom(c.codePointAt(0));r+=x!==null?x:c;}return r;}
+function titleRom(str){return str.split(/\s+/).map(w=>{const r=korToRom(w);return r[0].toUpperCase()+r.slice(1);}).join(' ');}
+function hyphenRom(str){return str.split(/\s+/).map(w=>{let sl=[];for(const c of w){const x=sylRom(c.codePointAt(0));sl.push(x?x[0].toUpperCase()+x.slice(1):c);}return sl.join('-');}).join(' ');}
+function camelRom(str){return str.split(/\s+/).map(w=>{let r='',f=true;for(const c of w){const x=sylRom(c.codePointAt(0));const p=x||c;if(f){r+=p[0].toUpperCase()+p.slice(1);f=false;}else r+=p;}return r;}).join('');}
+function upperRom(str){return korToRom(str).toUpperCase();}
+
+function doRoman(){
+  const raw=document.getElementById('inp').value.trim();
+  if(!raw){alert('제목을 입력해줘요 ✨');return;}
+  if(!/[가-힣]/.test(raw)){
+    document.getElementById('romanRes').innerHTML='<div class="roman-hint">이미 영어예요! 그냥 생성하기 눌러도 돼요 😊</div>';return;
+  }
+  const opts=[...new Set([titleRom(raw),hyphenRom(raw),camelRom(raw),upperRom(raw)])];
+  document.getElementById('romanRes').innerHTML=`<div class="roman-opts">${opts.map(o=>`<div class="roman-chip" onclick="pickRoman(this,'${o.replace(/'/g,"\\'")}')">${o}</div>`).join('')}</div><div class="roman-hint">👆 탭하면 입력칸에 자동 적용!</div>`;
+}
+function pickRoman(el,text){
+  document.querySelectorAll('.roman-chip').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('inp').value=text;
+  toast('✅ 입력칸에 적용됐어요!');
+}
+
+// ── 폰트 맵 ──────────────────────────────────────────────────
+const FMAPS = {
+  cursive: { u:'𝓐𝓑𝓒𝓓𝓔𝓕𝓖𝓗𝓘𝓙𝓚𝓛𝓜𝓝𝓞𝓟𝓠𝓡𝓢𝓣𝓤𝓥𝓦𝓧𝓨𝓩', l:'𝓪𝓫𝓬𝓭𝓮𝓯𝓰𝓱𝓲𝓳𝓴𝓵𝓶𝓷𝓸𝓹𝓺𝓻𝓼𝓽𝓾𝓿𝔀𝔁𝔂𝔃' },
+  gothic:  { u:'𝕬𝕭𝕮𝕯𝕰𝕱𝕲𝕳𝕴𝕵𝕶𝕷𝕸𝕹𝕺𝕻𝕼𝕽𝕾𝕿𝖀𝖁𝖂𝖃𝖄𝖅', l:'𝖆𝖇𝖈𝖉𝖊𝖋𝖌𝖍𝖎𝖏𝖐𝖑𝖒𝖓𝖔𝖕𝖖𝖗𝖘𝖙𝖚𝖛𝖜𝖝𝖞𝖟' },
+  circled: { u:'ⒶⒷⒸⒹⒺⒻⒼⒽⒾⒿⓀⓁⓂⓃⓄⓅⓆⓇⓈⓉⓊⓋⓌⓍⓎⓏ', l:'ⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ' },
+  squared: { u:'🄰🄱🄲🄳🄴🄵🄶🄷🄸🄹🄺🄻🄼🄽🄾🄿🅀🅁🅂🅃🅄🅅🅆🅇🅈🅉', l:'🄰🄱🄲🄳🄴🄵🄶🄷🄸🄹🄺🄻🄼🄽🄾🄿🅀🅁🅂🅃🅄🅅🅆🅇🅈🅉' },
+  bsquared:{ u:'🅐🅑🅒🅓🅔🅕🅖🅗🅘🅙🅚🅛🅜🅝🅞🅟🅠🅡🅢🅣🅤🅥🅦🅧🅨🅩', l:'🅐🅑🅒🅓🅔🅕🅖🅗🅘🅙🅚🅛🅜🅝🅞🅟🅠🅡🅢🅣🅤🅥🅦🅧🅨🅩' },
+  double:  { u:'𝔸𝔹ℂ𝔻𝔼𝔽𝔾ℍ𝕀𝕁𝕂𝕃𝕄ℕ𝕆ℙℚℝ𝕊𝕋𝕌𝕍𝕎𝕏𝕐ℤ', l:'𝕒𝕓𝕔𝕕𝕖𝕗𝕘𝕙𝕚𝕛𝕜𝕝𝕞𝕟𝕠𝕡𝕢𝕣𝕤𝕥𝕦𝕧𝕨𝕩𝕪𝕫' },
+};
+const ALP='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+function cvFont(text,k){
+  const m=FMAPS[k];if(!m)return text;
+  return [...text].map(c=>{
+    const i=ALP.indexOf(c.toUpperCase());if(i===-1)return c;
+    const up=c===c.toUpperCase()&&c!==c.toLowerCase();
+    return ([...(up?m.u:m.l)][i])||c;
+  }).join('');
+}
+const FLABELS={cursive:'🌸 필기체',gothic:'🖤 고딕체',circled:'⭕ 동그라미',squared:'🔲 네모',bsquared:'⬛ 검은네모',double:'💎 이중선'};
+
+// ── 장식틀 ────────────────────────────────────────────────────
+// 고정 앞뒤 틀 (혜정 원본)
+const PRESETS=[
+  {l:'𓂃 ࣪˖ ִֶָ𐀔  ',r:'  𐀔 ִֶָ˖ ࣪𓂃'},
+  {l:'꧁𓊈𒆜👑  ',r:'  👑𒆜𓊉꧂'},
+  {l:'𓂃𓈒𓏸  ',r:'  𓏸𓈒𓂃'},
+  {l:'꧁༒☬  ',r:'  ☬༒꧂'},
+  {l:'༺♥༻  ',r:'  ༺♥༻'},
+  {l:'☾⋆⁺₊♛  ',r:'  ♛₊⁺⋆☽'},
+  {l:'☾𓂃⋆⁺₊✧💠  ',r:'  💠✧₊⁺⋆𓂃☽'},
+  {l:'༺❦𓂃𓈒𓏸🦋🌹  ',r:'  🌹🦋𓏸𓈒𓂃❦༻'},
+  {l:'✧༺  ',r:'  ༻𖤐'},
+];
+// 가벼운 꾸미기틀 (폰트변환 포함)
+function lightFrames(t){return[
+  `☁️${cvFont(t,'circled')}☁️`,
+  `✧${cvFont(t,'bsquared')}✧`,
+  `𖹭${cvFont(t,'circled')}𖹭`,
+  `⋆⁺₊✦ ${cvFont(t,'circled')} ✦₊⁺⋆`,
+  `☾${cvFont(t,'circled')}☽`,
+  `㊝ ${cvFont(t,'squared')}`,
+  `✧${cvFont(t,'squared')}✧`,
+];}
+// 왕관틀
+function crownFrames(t){return[
+  `꧁༺𓆩👑⚜️✨${t}✨⚜️👑𓆪༻꧂`,
+  `𓊈𒆜💜🌙🪽${t}🪽🌙💜𒆜𓊉`,
+  `༒☬👑💎⚜️${t}⚜️💎👑☬༒`,
+  `☾༺🌹✨🦋${t}🦋✨🌹༻☽`,
+  `𖤐𓆩🔥👑💜${t}💜👑🔥𓆪𖤐`,
+];}
+// 달빛틀
+function moonFrames(t){return[
+  `🌙༺${t}༻🌙`,
+  `☾✨${t}✨☽`,
+  `🌙💫${t}💫🌙`,
+  `༺🌙🌸${t}🌸🌙༻`,
+  `✦🌙ᵎ${t}ᵎ🌙✦`,
+];}
+// 장미틀
+function flowerFrames(t){return[
+  `🌹✨${t}✨🌹`,
+  `🌸💮${t}💮🌸`,
+  `🌺🌹${t}🌹🌺`,
+  `🌷✿${t}✿🌷`,
+  `💐🌸✨${t}✨🌸💐`,
+];}
+// 별틀
+function starFrames(t){return[
+  `★彡${t}彡★`,
+  `✦✧${t}✧✦`,
+  `⭐🌟${t}🌟⭐`,
+  `✨★${t}★✨`,
+  `🌟✦彡${t}彡✦🌟`,
+];}
+
+// ── chip 상태 ─────────────────────────────────────────────────
+document.querySelectorAll('.chip').forEach(el=>el.addEventListener('click',()=>el.classList.toggle('on')));
+function activeFont(){return[...document.querySelectorAll('#fontChips .chip.on')].map(e=>e.dataset.f);}
+function activeFrame(){return[...document.querySelectorAll('#frameChips .chip.on')].map(e=>e.dataset.fr);}
+
+// ── 생성 ──────────────────────────────────────────────────────
+function generate(){
+  const raw=document.getElementById('inp').value.trim();
+  if(!raw){alert('제목을 입력해줘요 ✨');return;}
+
+  const res=[];let d=0;
+  const af=activeFont(),afr=activeFrame();
+
+  // 고정틀 (글씨 그대로)
+  if(afr.includes('preset')){
+    PRESETS.forEach(p=>res.push({label:'✦ 고정틀',text:p.l+raw+p.r,d:d++*35}));
+  }
+  // 가벼운틀 (폰트변환 포함)
+  if(afr.includes('light')){
+    lightFrames(raw).forEach(t=>res.push({label:'🌤 가벼운틀',text:t,d:d++*35}));
+  }
+  // 왕관틀
+  if(afr.includes('crown')){
+    crownFrames(raw).forEach(t=>res.push({label:'👑 왕관틀',text:t,d:d++*35}));
+  }
+  // 달빛틀
+  if(afr.includes('moon')){
+    moonFrames(raw).forEach(t=>res.push({label:'🌙 달빛틀',text:t,d:d++*35}));
+  }
+  // 장미틀
+  if(afr.includes('flower')){
+    flowerFrames(raw).forEach(t=>res.push({label:'🌹 장미틀',text:t,d:d++*35}));
+  }
+  // 별틀
+  if(afr.includes('star')){
+    starFrames(raw).forEach(t=>res.push({label:'⭐ 별틀',text:t,d:d++*35}));
+  }
+
+  // 폰트 단독 (선택한 폰트만, 틀 포함)
+  af.forEach(f=>{
+    const cv=cvFont(raw,f);
+    // 폰트+가벼운틀 조합
+    res.push({label:FLABELS[f],text:cv,d:d++*35});
+    res.push({label:FLABELS[f]+' + 틀',text:`✧${cv}✧`,d:d++*35});
+    res.push({label:FLABELS[f]+' + 틀',text:`𖹭${cv}𖹭`,d:d++*35});
+    res.push({label:FLABELS[f]+' + 틀',text:`⋆⁺₊✦ ${cv} ✦₊⁺⋆`,d:d++*35});
+  });
+
+  const con=document.getElementById('results');
+  con.innerHTML='';
+  if(!res.length){con.innerHTML='<div class="empty">스타일을 하나 이상 선택해줘요 😢</div>';return;}
+  res.forEach(r=>{
+    const card=document.createElement('div');
+    card.className='rcard';card.style.animationDelay=r.d+'ms';
+    const safe=r.text.replace(/\\/g,'\\\\').replace(/`/g,'\\`').replace(/\$/g,'\\$');
+    card.innerHTML=`<div class="rhead"><span class="rlabel">${r.label}</span><button class="bcopy" onclick="doCopy(this,\`${safe}\`)">복사</button></div><div class="rbody">${esc(r.text)}</div>`;
+    con.appendChild(card);
+  });
+}
+
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function doCopy(btn,text){
+  navigator.clipboard.writeText(text).then(()=>{
+    btn.textContent='✓ 복사됨';btn.classList.add('done');
+    toast('📋 복사됐어요!');
+    setTimeout(()=>{btn.textContent='복사';btn.classList.remove('done');},1500);
+  });
+}
+function toast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),1800);
+}
+document.getElementById('inp').addEventListener('keydown',e=>{if(e.key==='Enter')generate();});
+</script>
+</body>
+</html>
