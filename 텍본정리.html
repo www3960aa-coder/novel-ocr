@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>텍본 정리</title>
+<style>
+:root {
+  --bg: #f8f7ff; --card: #fff; --p: #8b5cf6; --p2: #a78bdb;
+  --border: #e8e0ff; --text: #333; --sub: #888; --btn: #8b5cf6;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
+body { background: var(--bg); color: var(--text); padding: 16px; padding-bottom: 90px; }
+h1 { text-align: center; font-size: 1.2rem; color: var(--p); margin-bottom: 4px; }
+p.sub { text-align: center; font-size: 0.8rem; color: var(--sub); margin-bottom: 16px; }
+.card { background: var(--card); border-radius: 16px; padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(139,92,246,0.08); }
+.card-title { font-size: 0.95rem; font-weight: 700; color: var(--p); margin-bottom: 12px; }
+.drop-zone { border: 2px dashed var(--p2); border-radius: 12px; padding: 24px; text-align: center; cursor: pointer; color: var(--sub); font-size: 0.9rem; }
+.drop-zone:active { background: #f0ebff; }
+.info-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; color: var(--sub); margin-bottom: 8px; }
+.info-row span { color: var(--p); font-weight: 700; }
+#line-list { max-height: 380px; overflow-y: auto; border-radius: 10px; border: 1px solid var(--border); background: #faf9ff; }
+.line-row { display: flex; align-items: flex-start; gap: 8px; padding: 7px 10px; border-bottom: 1px solid #f0ebff; cursor: pointer; font-size: 0.8rem; line-height: 1.5; }
+.line-row:last-child { border-bottom: none; }
+.line-row.cut { background: #fff0f0; color: #bbb; }
+.line-row.start { background: #f0ebff; font-weight: 700; }
+.line-row .lnum { color: #ccc; min-width: 26px; text-align: right; flex-shrink: 0; font-size: 0.72rem; padding-top: 2px; }
+.line-row .ltxt { flex: 1; word-break: break-all; white-space: pre-wrap; }
+.badge { font-size: 0.65rem; padding: 2px 6px; border-radius: 8px; background: var(--p); color: #fff; flex-shrink: 0; }
+.btn { width: 100%; padding: 14px; border: none; border-radius: 12px; font-size: 1rem; font-weight: 700; cursor: pointer; }
+.btn-main { background: var(--p); color: #fff; box-shadow: 0 4px 12px rgba(139,92,246,0.2); }
+.bottom { position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg); padding: 12px 16px; padding-bottom: calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); }
+#empty { text-align: center; padding: 40px 0; color: var(--sub); font-size: 0.9rem; }
+</style>
+</head>
+<body>
+
+<h1>📄 텍본 정리</h1>
+<p class="sub">앞부분 불필요한 줄을 잘라내고 바로 저장해요</p>
+
+<div class="card">
+  <div class="card-title">📂 파일 업로드</div>
+  <div class="drop-zone" onclick="document.getElementById('file-input').click()" id="drop-zone">
+    📄 터치해서 TXT 파일을 선택하세요
+  </div>
+  <input type="file" id="file-input" accept=".txt" style="display:none;">
+</div>
+
+<div class="card" id="preview-card" style="display:none;">
+  <div class="info-row">
+    <span id="current-name">-</span>
+    <span id="start-info">시작: 1번째 줄</span>
+  </div>
+  <p style="font-size:0.75rem;color:var(--sub);margin-bottom:8px;">원하는 줄을 탭해서 시작점을 지정하세요. 위쪽 빨간 줄은 제거돼요.</p>
+  <div id="line-list"><div id="empty">파일을 선택하세요</div></div>
+</div>
+
+<div class="bottom">
+  <button class="btn btn-main" onclick="saveCurrent()">✂️ 저장하기</button>
+</div>
+
+<script>
+let currentData = null; // { name, lines, startLine }
+
+const fileInput = document.getElementById('file-input');
+const dropZone = document.getElementById('drop-zone');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.background='#f0ebff'; });
+dropZone.addEventListener('dragleave', () => dropZone.style.background='');
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.style.background='';
+  const f = Array.from(e.dataTransfer.files).find(f => f.name.endsWith('.txt'));
+  if (f) loadFile(f);
+});
+
+fileInput.addEventListener('change', async e => {
+  if (!e.target.files.length) return;
+  await loadFile(e.target.files[0]);
+  fileInput.value = '';
+});
+
+async function loadFile(f) {
+  const text = await readTxt(f);
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  
+  let auto = 0;
+  for (let i = 0; i < Math.min(lines.length, 80); i++) {
+    const l = lines[i].trim();
+    if (l.length > 25 || l.startsWith('"') || l.startsWith('「') || l.startsWith("'")) {
+      auto = i; break;
+    }
+  }
+  
+  currentData = { name: f.name, lines, startLine: auto };
+  document.getElementById('preview-card').style.display = 'block';
+  renderPreview();
+}
+
+function renderPreview() {
+  if (!currentData) return;
+  const { name, lines, startLine } = currentData;
+  
+  document.getElementById('current-name').textContent = name.replace(/\.txt$/i,'');
+  document.getElementById('start-info').textContent = `시작: ${startLine+1}번째 줄`;
+
+  const el = document.getElementById('line-list');
+  const show = lines.slice(0, 80);
+  
+  el.innerHTML = show.map((l, i) => {
+    const isCut = i < startLine;
+    const isStart = i === startLine;
+    return `<div class="line-row ${isCut?'cut':''} ${isStart?'start':''}" onclick="setStart(${i})">
+      <span class="lnum">${i+1}</span>
+      <span class="ltxt">${escHtml(l||' ')}</span>
+      ${isStart ? '<span class="badge">시작</span>' : ''}
+    </div>`;
+  }).join('');
+
+  setTimeout(() => {
+    const rows = el.querySelectorAll('.line-row');
+    if (rows[startLine]) rows[startLine].scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, 60);
+}
+
+function setStart(idx) {
+  if (!currentData) return;
+  currentData.startLine = idx;
+  renderPreview();
+}
+
+function saveCurrent() {
+  if (!currentData) return alert('파일을 먼저 선택하세요');
+  
+  const { name, lines, startLine } = currentData;
+  const content = lines.slice(startLine).join('\n');
+  const blob = new Blob(['\uFEFF' + content], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  
+  const a = document.createElement('a');
+  a.href = url;
+  const dot = name.lastIndexOf('.');
+  a.download = dot >= 0 ? name.slice(0,dot) + '_정리' + name.slice(dot) : name + '_정리';
+  
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  
+  URL.revokeObjectURL(url);
+}
+
+async function readTxt(file) {
+  return new Promise(resolve => {
+    const r = new FileReader();
+    r.onload = e => {
+      const text = e.target.result;
+      if (text.includes('\uFFFD')) {
+        const r2 = new FileReader();
+        r2.onload = e2 => resolve(e2.target.result);
+        r2.onerror = () => resolve(text);
+        r2.readAsText(file, 'EUC-KR');
+      } else {
+        resolve(text);
+      }
+    };
+    r.onerror = () => resolve('');
+    r.readAsText(file, 'UTF-8');
+  });
+}
+
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+</body>
+</html>
