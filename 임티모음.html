@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>임티 모음</title>
+<style>
+:root {
+  --bg: #fdf6ff; --card: #fff; --p: #b06ef3; --p2: #d4a8ff;
+  --border: #eedeff; --text: #333; --sub: #999; --tab-bg: #f3eaff; --toast-bg: #7c3aed;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, 'Segoe UI', sans-serif; }
+body { background: var(--bg); color: var(--text); padding-bottom: 24px; }
+header {
+  background: linear-gradient(135deg, #c084fc, #a855f7, #7c3aed);
+  padding: 20px 16px 16px; text-align: center;
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 12px rgba(124,58,237,0.18);
+}
+header h1 { font-size: 1.2rem; color: #fff; font-weight: 800; }
+header p { font-size: 0.75rem; color: rgba(255,255,255,0.78); margin-top: 3px; }
+.tabs {
+  display: flex; overflow-x: auto; gap: 6px;
+  padding: 10px 12px 0; background: var(--bg);
+  scrollbar-width: none; position: sticky; top: 70px; z-index: 90;
+  border-bottom: 2px solid var(--border);
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  flex-shrink: 0; padding: 6px 14px; border-radius: 20px 20px 0 0;
+  font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  border: none; background: var(--tab-bg); color: var(--p);
+  border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s;
+}
+.tab.active { background: var(--p); color: #fff; border-bottom-color: var(--p); }
+.section { padding: 14px 12px 0; display: none; }
+.section.active { display: block; }
+.sec-title { font-size: 0.78rem; font-weight: 700; color: var(--p); margin-bottom: 8px; margin-top: 16px; }
+.sec-title:first-child { margin-top: 0; }
+.grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+.sym {
+  background: var(--card); border: 1.5px solid var(--border); border-radius: 10px;
+  padding: 7px 11px; font-size: 0.88rem; cursor: pointer; color: var(--text);
+  line-height: 1.4; transition: background 0.1s, transform 0.1s;
+  white-space: nowrap; user-select: none; -webkit-user-select: none;
+  box-shadow: 0 1px 4px rgba(176,110,243,0.07);
+}
+.sym:active { background: #f0e4ff; transform: scale(0.93); border-color: var(--p2); }
+#toast {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: var(--toast-bg); color: #fff; padding: 10px 22px; border-radius: 24px;
+  font-size: 0.85rem; font-weight: 600; opacity: 0; pointer-events: none;
+  transition: all 0.25s; white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(124,58,237,0.35); z-index: 999;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.search-wrap { padding: 10px 12px 0; }
+.search-input {
+  width: 100%; padding: 10px 14px; border-radius: 24px;
+  border: 1.5px solid var(--border); font-size: 0.9rem;
+  background: var(--card); color: var(--text); outline: none;
+}
+.search-input:focus { border-color: var(--p2); }
+#search-result { padding: 10px 12px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>꒰ᐡ•ﻌ•ᐡ꒱ 임티 모음</h1>
+  <p>탭하면 바로 복사돼요!</p>
+</header>
+<div class="search-wrap">
+  <input class="search-input" id="search" placeholder="🔍 검색…" oninput="doSearch(this.value)">
+</div>
+<div id="search-result" style="display:none;"></div>
+<div class="tabs" id="tabs"></div>
+<div id="sections"></div>
+<div id="toast"></div>
+<script>
+const DATA = [
+  {
+    tab: '🐾 동물',
+    groups: [
+      { title: '고양이', items: ['ฅ(=^・ω・^=)ฅ','(=^･ω･^=)','(=^ ◡ ^=)','ฅ^•ﻌ•^ฅ','(ฅ•ω•ฅ)','꒰ᐡ•ﻌ•ᐡ꒱','ʕ•ﻌ•ʔ','(=｀ω´=)','(ฅ^•ω•^ฅ)','(^• ω •^)','(≧ω≦)','( ΦωΦ )','(=^-ω-^=)','ฅ(´-ω-`)ฅ','(>ω<)','(*ฅ•ω•ฅ*)'] },
+      { title: '곰·강아지', items: ['ʕ•ᴥ•ʔ','ʕっ•ᴥ•ʔっ','ʕ·ᴥ·ʔ','(◕ᴥ◕ʋ)','ʕ •̀ o •́ ʔ','ʕ ˘ᴥ˘ ʔ','ʕ≧ᴥ≦ʔ','ʕ´•ᴥ•`ʔ','U•ᴥ•U','(▽^▽)','(◉ᴥ◉)','ʕ •ω• ʔ'] },
+      { title: '토끼·햄스터', items: ['(U ᵕ U❁)','(ˊ•͈ ◡ •͈ˋ)','(。U ω U。)','( ๑>ᴗ<๑ )','(⁎˙༥˙⁎)','(ू˙꒳​˙ )','(✿´꒳`)','ʕ•̫͡•ʔ','(=ↀωↀ=)','( ᵒ̴̶̷᷄꒳ᵒ̴̶̷᷅ )','(⊃‿⊂)','꒰ ˘ ³˘ ꒱'] },
+      { title: '기타 귀여운', items: ['(◍•ᴗ•◍)','(灬°ω°灬)','(⁀ᗢ⁀)','(•ᴥ•)','(ᵔᴥᵔ)','(˶ᵔ ᵕ ᵔ˶)','( ´꒳`)','(◠ꌂ◠)','( •ᴗ•)','(๑•ᴗ•๑)','( ᐢ ᐢ )','(ᐡ •ヮ• ᐡ)','꒰ᐟ•ﻌ•ᐟ꒱','(ᗒᗨᗕ)','( ͡• ᴥ ͡•)','ฅ(^•ω•^ฅ)'] },
+    ]
+  },
+  {
+    tab: '(˶ᵔᵕᵔ˶) 웃음',
+    groups: [
+      { title: '귀여운 웃음', items: ['(◍ᐡ₃ᐡ◍)','(˶ᵔ ᵕ ᵔ˶)','(´｡• ᵕ •｡`)','(≧◡≦)','(◕‿◕✿)','(｡•́‿•̀｡)','(*˘︶˘*)','(◠‿◠)','꒰⑅ᵕ༚ᵕ꒱','(˘ᵕ˘)','(ᵔ◡ᵔ)✧','꒰˘ ³˘꒱','(✿◡‿◡)','(ꕤ ˘ᗜ˘ ꕤ)','(´▽`*)','(◡ ω ◡)'] },
+      { title: '신남·행복', items: ['(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧','ヽ(✿ﾟ▽ﾟ)ノ','(∩´∀｀)∩','(≧∀≦)','٩(◕‿◕)۶','٩(ˊᗜˋ*)و','(●´ω｀●)','(ﾉ≧∀≦)ﾉ','(ﾉ´ヮ`)ﾉ*:･ﾟ','ヽ(°〇°)ﾉ','w(°ｏ°)w','(^▽^)','(ﾉ^ヮ^)ﾉ','(っ^▿^)۶','✧*。٩(ˊᗜˋ*)و✧*。','ლ(´ڡ`ლ)'] },
+      { title: '부끄·수줍', items: ['(⁄ ⁄•⁄ω⁄•⁄ ⁄)','(*ૂ❛ᴗ❛*ૂ)','(๑˃̵ᴗ˂̵)','(*ᵕ̤ ᴗ ᵕ̤*)','(⸝⸝ᵕᴗᵕ⸝⸝)','(˘³˘)♥','(˘▾˘)','(〃>_<;〃)','(〃ω〃)','(*/ω＼*)','(⌒_⌒;)','(///∇///)','(⸝⸝⸝ ॢᵒ̴̶̷̥́ ꙳ ᵒ̴̶̷̣̥̀ ॢ⸝⸝⸝)','(˵ •̀ ᴗ - ˵ )✧','(*˘︶˘*).｡.:*♡','(⸝⸝´꒳`⸝⸝)'] },
+      { title: '폭소·실소', items: ['ꉂꉂ(ᵔᗜᵔ)','ꉂ(˃ᴗ˂*)','( ≧∀≦)ノ','(ʃƪ˘ ³˘)','(ॢ˘⌣˘ ॢ)','( *¯ ³¯*)','(˶˘ ³˘)','w(ﾟДﾟ)w','(ゝω・)','ヾ(≧▽≦*)o','XD','(*≧∀≦*)','≧◉ᴥ◉≦','(ꭥ ᗜ ꭥ)','ᕕ( ᐛ )ᕗ','(¬‿¬)'] },
+    ]
+  },
+  {
+    tab: '(｡•́︿•̀｡) 감정',
+    groups: [
+      { title: '슬픔·눈물', items: ['(｡•́︿•̀｡)','(っ˘̩╭╮˘̩)っ','(っ- ‸ - ς)','( ╥ω╥ )','(T▽T)','(╥﹏╥)','(•ᴖ•｡)','(◞‸◟；)','｡ﾟ(ﾟ´Д｀ﾟ)ﾟ｡','(╯︵╰,)','( ˃̣̣̥⌓˂̣̣̥ )','(⸝⸝ᵕ̩̩ ｡ ᵕ̩̩⸝⸝)','(´；ω；`)','(இ﹏இ)','(◟ꆤ.̫ꆤ◟)','(つ﹏⊂)'] },
+      { title: '당황·멘붕', items: ['(°ロ°)','(⊙_⊙)','Σ(°△°|||)','(ﾟДﾟ;)','°д°','Σ(￣。￣ﾉ)','щ(ﾟДﾟщ)','(」°ロ°)」','(;´Д｀)','(*゜Q゜*)','(´⊙ω⊙`)','(◉◞⊖◟◉)','(⊙ˍ⊙)','Σ( ° △ °|||)','(눈_눈)','( ˙▿˙ )'] },
+      { title: '화남·삐짐', items: ['(╬ Ò﹏Ó)','(ó﹏ò。)','(눈_눈)','(｀皿´)','(ಠ_ಠ)','(ó ω ò)','(•̀ᴗ•́)و ̑̑','凸(¬‿¬)凸','(¬_¬)','(ｰ̀дｰ́)','( `д´)','ψ(`∇´)ψ','(ง •̀ _ •́)ง','(-_-メ)','(ò_ó)','（# ﾟДﾟ）'] },
+      { title: '지침·졸음', items: ['(´-ω-`)','(-_-)zzz','(。-ω-)','(ーωー)','( ´•̥̥̥ω•̥̥̥` )','(o´_｀o)','( ˘ω˘ )','(._.`)','(´ᴗ`..)','(ᵕ—ᴗ—)','(-ω-;)','(._.)','(ᗒ ω ᗕ)','(´□｀。)','(ಥ_ʖಥ)','(ᵒ ᵕ ᵒ)ᶻ 𝗓 𐰁'] },
+    ]
+  },
+  {
+    tab: '(ง•̀_•́)ง 파이팅',
+    groups: [
+      { title: '파이팅·기합', items: ['(ง •̀_•́)ง✧','ᕦ(ò_óˇ)ᕤ','(ง •̀ω•́)ง','ᕙ(⇀‸↼‶)ᕗ','٩(ˊᗜˋ*)و✧','(•̀ᴗ•́)و','ᕦ(ᗜ˙)ᕤ','(ง ˙o˙)ว','(งツ)ว','(ᗒᗣᗕ)','( •̀ᴗ•́ )و ̑̑','ᕙ(`▿´)ᕗ','◝(ᵔᵕᵔ)◜','ᕦ( ͡° ͜ʖ ͡°)ᕤ','(۶•̀ᴗ•́)۶','ᕦʕ •ᴥ•ʔᕤ'] },
+      { title: '인사·손흔들기', items: ['(^○^)ノ','(・ω・)ノ','ヾ(・ω・*)','(*・ω・)ﾉ','ヾ(*´∀｀*)ﾉ','ヾ(˙❥˙)ノ','(⌒▽⌒)☆','ヾ(•ω•`)o','(灬º‿º灬)♡','( ´ ▽ ` )ﾉ','ヾ(^∇^)','(´• ω •`)ノ','(*´▽`*)ﾉ','ヾ(≧▽≦*)ノ','(づ ᴗ _ᴗ)づ♡','o(≧▽≦)o'] },
+      { title: '집중·공부', items: ['(ง •̀ _ •́)ง📖','( •̀ω•́ )و✧','(ﾉ ᵕ ᵕ)ﾉ📚','(•̀o•́)ง','ᕙ(˘_˘)ᕗ','ง(ᵒ̴̶̷̤ ۝ᵒ̴̶̷̤)ว','(•̀ᴗ•́)و 📖','◞(ꙭ)◟','(๑•̀ㅂ•́)و✧','(ง •̀ᴗ•́)ง','( ᐛ )و','(¬ᴗ¬)✧'] },
+    ]
+  },
+  {
+    tab: '♡ 사랑·애교',
+    groups: [
+      { title: '사랑·설렘', items: ['(◍ᐡ₃ᐡ◍)♡','(˘³˘)♥','(っ˘ω˘ς)','(♡˙︶˙♡)','♡( ◡‿◡ )','(｡♡‿♡｡)','(⸝⸝´꒳`⸝⸝)♡','(˶ᵔ ᵕ ᵔ˶)♡','(ɔˆ ³ˆ)ɔ♡','(≧◡≦)♡','(人 •͈ᴗ•͈)','(♡ᵕ̤ᴗᵕ̤♡)','♡(ˆ‿ˆԅ)','✧(˘▾˘)✧','(⌯˃̶᷄ ﹏ ˂̶᷄⌯)♡','꒰ᵔ ꒳ ᵔ꒱♡'] },
+      { title: '윙크·애교', items: ['(｡•̀ᴗ-)✧','(^_−)☆','(˘ε˘˶)','(*˘꒳˘*)','(˶•ᴗ•˶)♡','( ´艸｀)','(〃∀〃)','(°▽°)b','( ◜‿◝ )','(-ω-`)ゞ','(˘ᵕ˘)♡','(´∀｀*)ﾉ','(•‿•✿)','(●>ω<●)','( ´ ▽ ` )b','(˵•ᴗ- ˵)'] },
+      { title: '뽀뽀·끌어안기', items: ['(づ ̄ ³ ̄)づ','(づ｡◕‿‿◕｡)づ','(っ´▽`)っ','(つ∀⊂)','(⊃ ◕ ◡ ◕)⊃','c(っ˘̩╭╮˘̩)っ','(ʃƪ˘ ³˘)','(ᗒ ᗨ ᗕ)♡','(づ ᵕ̤ ᴗ ᵕ̤)づ♡','(づ ˘ ³˘)づ♡','⊂(´• ω •`⊂)','(っ◔◡◔)っ♡'] },
+    ]
+  },
+  {
+    tab: '✦ 신기한 표정',
+    groups: [
+      { title: '독특한 표정', items: ['ദ്ദി(˵ •̀ ᴗ - ˵ )✧','ദ്ദി(ᵔᗜᵔ)','ദ്ദി(• ᗜ •)','ദ്ദി˶˘ ᵕ˘ )','( •_•)>⌐■-■','(⌐■_■)','¯\\_(ツ)_/¯','(ಠ‿ಠ)','( ᐛ )','ᕕ(ᐛ)ᕗ','( •_•)','(ʘᴗʘ✿)','(｡ˇ ◡ˇ ｡)','(ˊ•͈ ◡ •͈ˋ)','(°ᗜ°)','(¬ ᴗ ¬)'] },
+      { title: 'ㅎㅂ·당당', items: ['( ͡° ͜ʖ ͡°)','( ͡~ ͜ʖ ͡°)','ヽ( ͡° ͜ʖ ͡°)ﾉ','( ͡◉ ͜ʖ ͡◉)','¬( ͡° ͜ʖ ͡°)','( ノ ͡° ͜ʖ ͡°)ノ','(▀̿Ĺ̯▀̿ ̿)','(•̀_•́)ง','(•_•)','(ಠ_ಠ)','(ꭤ ᗜ ꭤ)','(≖ ͜ʖ≖)'] },
+      { title: '철학자·멍때리기', items: ['(｀_´)ゞ','(.づ◡﹏◡)づ.','(˘ .˘)','(°_°)','(・・;)','(・_・;)','(・・?)','(・_・ヾ','(._.)','(·_·)','(·.·)','(꒪⌓꒪)','(ʘ言ʘ╬)','(ㆆ_ㆆ)','(•◡•) /','(๑ˊ▵ॢˋ̥๑)'] },
+      { title: '병맛·개그', items: ['(☞ﾟヮﾟ)☞','☜(ﾟヮﾟ☜)','(☞ ͡° ͜ʖ ͡°)☞','(•ˋ _ ˊ•)','ヽ(゜Q。)ノ？','(╯°□°）╯︵ ┻━┻','┬─┬ノ( º _ ºノ)','(ó ì_í)=óò=(ì_í ò)','(っ˘ڡ˘ς)','ʕ ᵒ̷͡ᵒ̷͡ ʔ','(ᵔ_ᵔ)/~†','( •_•) ( •_•)>⌐■-■ (⌐■_■)'] },
+    ]
+  },
+  {
+    tab: '𓆸 고대·유니코드',
+    groups: [
+      { title: '이집트·고대문자', items: ['𓆸','𓅿','𓂃','𓃠','𓄁','𓆏','𓅭','𓀿','𓁿','𓃰','𓄿','𓅁','𓅀','𓃾','𓄀','𓁶','𓂀','𓂋','𓂌','𓃡'] },
+      { title: '신기한 유니코드', items: ['𖹭','𖥸','𖦹','𖤐','꩜','᪥','꒰꒱','꙳','ꕤ','ꕥ','꫶','꧁','꧂','꧃','꧄','꧅','ꨄ','꒷','꒦','꒩'] },
+      { title: '룬·신비문자', items: ['ᚠ','ᚢ','ᚦ','ᚨ','ᚱ','ᚲ','ᚷ','ᚹ','ᚺ','ᚾ','ᛁ','ᛃ','ᛇ','ᛈ','ᛉ','ᛊ','ᛏ','ᛒ','ᛖ','ᛗ'] },
+      { title: '한글자모·옛한글', items: ['ᄀ','ᄂ','ᄃ','ᄅ','ᄆ','ᄇ','ᄉ','ᄋ','ᄌ','ᄎ','ᄏ','ᄐ','ᄑ','ᄒ','ᅡ','ᅢ','ᅣ','ᅤ','ᅥ','ᅦ'] },
+      { title: '수학·기호문자', items: ['∞','∑','∏','√','∛','∜','∂','∇','∆','∈','∉','∩','∪','⊂','⊃','⊄','⊅','⊆','⊇','≡'] },
+      { title: '화살표·방향', items: ['↖↑↗','←→','↙↓↘','⇐⇒','⇑⇓','⇖⇗','↺↻','⟵⟶','⟷','↝','↜','⇝','⇜','↭','⇌','⇋'] },
+    ]
+  },
+  {
+    tab: '✧ 특수기호',
+    groups: [
+      { title: '꽃·별·장식', items: ['✦','❀','✿','❦','✶','❋','✧','⊹','◈','❈','꙳','✼','⁕','𖹭','𓂃','𖤐','✵','❊','✲','✱','✳','✴','✷','✸','✹','✺'] },
+      { title: '달·하늘', items: ['☽','☾','☀','☁','⛅','🌙','⋆','⊹','᪥','꩜','𖥸','𖦹','✨','💫','⭐','🌟','☄','🌌','🌠','🌃'] },
+      { title: '마음·음악', items: ['♡','♥','❤','❥','❣','♬','♩','♪','♫','♭','♮','♯','𝅗𝅥','𝅘𝅥𝅮','𝅘𝅥𝅯','𝅘𝅥𝅰','ʕ·͜·ʔ','(˶ᵔ ᵕ ᵔ˶)'] },
+      { title: '도형·테두리', items: ['◇','◆','◎','○','●','□','■','△','▲','▽','▼','◁','▷','◂','▸','◃','▹','⬡','⬢','⬣'] },
+      { title: '구분선·꾸미기', items: ['・:*:・','｡ﾟ+｡','.:*:.','＊•.¸','°•°','✦ ✦ ✦','⊹ ⊹ ⊹','𖹭 𖹭 𖹭','〰〰〰','─────','━━━━━','·͜·','˘͈ᵕ˘͈','·˚ ༘','₊˚⊹','⋆｡°✩'] },
+      { title: '숫자·첨자', items: ['①②③④⑤','⑥⑦⑧⑨⑩','⑴⑵⑶⑷⑸','❶❷❸❹❺','㊀㊁㊂㊃㊄','⓪①②③','⁰¹²³⁴','⁵⁶⁷⁸⁹','₀₁₂₃₄','₅₆₇₈₉'] },
+    ]
+  },
+  {
+    tab: '🌸 이모지',
+    groups: [
+      { title: '꽃·식물', items: ['🌸','🌺','🌼','🌻','🌹','🌷','💐','🍀','🌿','🌱','🌾','🍃','🪷','🌵','🌴','🎋','🍄','🪻','🌙','🌛'] },
+      { title: '하늘·날씨', items: ['⭐','🌟','✨','💫','🌈','☁️','🌤','⛅','🌙','🌠','☄️','🌌','🌊','❄️','🌸','🍂','🍁','🌬️','⚡','🌺'] },
+      { title: '동물', items: ['🦋','🐇','🐾','🕊️','🐥','🐣','🦊','🐰','🐱','🐶','🐼','🐨','🦔','🐢','🐠','🦩','🦚','🦜','🐧','🦋'] },
+      { title: '음식·음료', items: ['🍵','🧋','☕','🍡','🍰','🎂','🍭','🍬','🧁','🍮','🍯','🍓','🍑','🍒','🍇','🫐','🍊','🍋','🍉','🍎'] },
+      { title: '물건·장식', items: ['💎','🔔','🎀','📖','🕯','🫧','🌂','🧸','🎠','🎡','🎪','🎭','🪅','🎨','🖼','🎁','🪄','🔮','🧿','🪬'] },
+      { title: '마음·기타', items: ['💜','💗','💕','💞','🩷','🩵','💙','🤍','🖤','🩶','💛','💚','🧡','❤️','🫀','💝','💖','💓','💘','💟'] },
+    ]
+  },
+  {
+    tab: '✍️ 꾸미기 조합',
+    groups: [
+      { title: '제목 꾸미기', items: ['﹏﹏𓍢ִ໋🌷͙֒','✧.*','｡♡˖ °','·˚ ༘ ₊','⋆｡°✩','₊˚⊹♡','⌒꒰꒱⌒','꒰ა ☆ ໒꒱','＊˚✦','✩₊˚.⋆☾⋆⁺₊✧','˗ˏˋ ★ ˎˊ˗','ꕤ ˘ᗜ˘ ꕤ'] },
+      { title: '글 사이 구분', items: ['· · ·','• • •','❦ ❦ ❦','✦ ✦ ✦','⊹ ⊹ ⊹','~ ~ ~','— — —','· · · · ·','∘∘∘∘∘','＊＊＊','―――','✿ ✿ ✿'] },
+      { title: '괄호·프레임', items: ['꒰ ꒱','【 】','｢ ｣','〔 〕','「 」','『 』','《 》','〈 〉','❨ ❩','❪ ❫','❬ ❭','❮ ❯'] },
+      { title: '강조·밑줄 효과', items: ['̲̲̲̲̲̲̲̲̲̲̲̲̲̲̲̲','͟͟͟͟͟͟͟͟͟͟͟','꒰꒰꒱꒱','[[ ]]','{{ }}','⟦ ⟧','⟨ ⟩','⟪ ⟫','༶•┈┈⛧','•°. *࿐','─ · ─','✧ · ✧'] },
+    ]
+  },
+];
+
+const tabsEl = document.getElementById('tabs');
+const sectionsEl = document.getElementById('sections');
+
+DATA.forEach((cat, i) => {
+  const tab = document.createElement('button');
+  tab.className = 'tab' + (i === 0 ? ' active' : '');
+  tab.textContent = cat.tab;
+  tab.onclick = () => switchTab(i);
+  tabsEl.appendChild(tab);
+
+  const sec = document.createElement('div');
+  sec.className = 'section' + (i === 0 ? ' active' : '');
+  sec.id = 'sec-' + i;
+  cat.groups.forEach(g => {
+    const title = document.createElement('div');
+    title.className = 'sec-title';
+    title.textContent = g.title;
+    sec.appendChild(title);
+    const grid = document.createElement('div');
+    grid.className = 'grid';
+    g.items.forEach(s => grid.appendChild(makeBtn(s)));
+    sec.appendChild(grid);
+  });
+  sectionsEl.appendChild(sec);
+});
+
+function switchTab(i) {
+  document.querySelectorAll('.tab').forEach((t,j) => t.classList.toggle('active', i===j));
+  document.querySelectorAll('.section').forEach((s,j) => s.classList.toggle('active', i===j));
+}
+function makeBtn(s) {
+  const b = document.createElement('button');
+  b.className = 'sym';
+  b.textContent = s;
+  b.onclick = () => copyText(s);
+  return b;
+}
+function doSearch(q) {
+  const res = document.getElementById('search-result');
+  const tabs = document.getElementById('tabs');
+  const secs = document.getElementById('sections');
+  q = q.trim();
+  if (!q) {
+    res.style.display='none'; res.innerHTML='';
+    tabs.style.display=''; secs.style.display=''; return;
+  }
+  tabs.style.display='none'; secs.style.display='none';
+  const all=[];
+  DATA.forEach(cat => cat.groups.forEach(g => g.items.forEach(s => { if(s.includes(q)) all.push(s); })));
+  if (!all.length) {
+    res.style.display='block';
+    res.innerHTML='<p style="padding:20px;color:#aaa;text-align:center;font-size:0.85rem;">검색 결과가 없어요</p>';
+    return;
+  }
+  const grid = document.createElement('div');
+  grid.className='grid';
+  all.forEach(s => grid.appendChild(makeBtn(s)));
+  res.innerHTML=''; res.appendChild(grid); res.style.display='block';
+}
+let toastTimer;
+function copyText(s) {
+  if (navigator.clipboard) navigator.clipboard.writeText(s).catch(()=>fallbackCopy(s));
+  else fallbackCopy(s);
+  showToast(s);
+}
+function fallbackCopy(s) {
+  const ta=document.createElement('textarea');
+  ta.value=s; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try{document.execCommand('copy');}catch(e){}
+  document.body.removeChild(ta);
+}
+function showToast(s) {
+  const t=document.getElementById('toast');
+  t.textContent=s+'  복사됐어요 ✓';
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),1600);
+}
+</script>
+</body>
+</html>
