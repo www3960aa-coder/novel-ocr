@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>텍본 합치기 & 검수기</title>
+    <style>
+        body { 
+            background-color: #f8f8fc; 
+            color: #333; 
+            font-family: 'Pretendard', sans-serif; 
+            margin: 0; 
+            padding: 20px 20px 100px 20px; 
+        }
+        
+        .header { 
+            text-align: center; 
+            margin-bottom: 25px; 
+        }
+        .header h1 { 
+            font-size: 22px; 
+            color: #8a6ee5; 
+            margin: 0 0 5px 0; 
+        }
+        .header p { 
+            font-size: 13px; 
+            color: #888; 
+            margin: 0; 
+        }
+
+        .card { 
+            background: #ffffff; 
+            border-radius: 16px; 
+            padding: 20px; 
+            margin-bottom: 15px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.03); 
+        }
+        .card-title { 
+            font-size: 16px; 
+            font-weight: bold; 
+            color: #8a6ee5; 
+            margin-bottom: 15px; 
+        }
+
+        .upload-box { 
+            border: 2px dashed #c4b5fd; 
+            border-radius: 12px; 
+            padding: 30px 10px; 
+            text-align: center; 
+            cursor: pointer; 
+            background: #faf9ff; 
+        }
+        .upload-box p { 
+            margin: 0; 
+            color: #888; 
+            font-size: 14px; 
+        }
+        
+        .inspect-box {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.6;
+            display: none;
+        }
+        .inspect-success {
+            background-color: #eefbf3;
+            border: 1px solid #bbf7d0;
+            color: #166534;
+        }
+        .inspect-warning {
+            background-color: #fff7ed;
+            border: 1px solid #ffedd5;
+            color: #9a3412;
+        }
+
+        .file-list { 
+            margin-top: 15px; 
+            font-size: 13px; 
+            color: #555; 
+            max-height: 180px; 
+            overflow-y: auto; 
+            line-height: 1.6;
+            border-top: 1px dashed #eee;
+            padding-top: 15px;
+        }
+
+        input[type="text"] { 
+            width: 100%; 
+            padding: 12px; 
+            border: 1px solid #ddd; 
+            border-radius: 8px; 
+            background: #fdfdfd; 
+            color: #333; 
+            box-sizing: border-box; 
+            font-size: 14px;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+            color: #555;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        .checkbox-label:last-child {
+            margin-bottom: 0;
+        }
+        .checkbox-label input {
+            margin-right: 8px;
+            width: 18px;
+            height: 18px;
+            accent-color: #8a6ee5;
+        }
+
+        .bottom-btn-wrap { 
+            position: fixed; 
+            bottom: 0; 
+            left: 0; 
+            width: 100%; 
+            padding: 15px 20px; 
+            background: #f8f8fc; 
+            box-sizing: border-box; 
+        }
+        .submit-btn { 
+            background: #8a6ee5; 
+            color: white; 
+            border: none; 
+            width: 100%; 
+            padding: 16px; 
+            border-radius: 12px; 
+            font-size: 16px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            box-shadow: 0 4px 12px rgba(138, 110, 229, 0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>텍본 합치기 & 검수기</h1>
+        <p>파일을 올리면 누락된 화수를 알아서 체크해 드려요</p>
+    </div>
+
+    <div class="card">
+        <div class="card-title">파일 업로드</div>
+        <div class="upload-box" onclick="document.getElementById('fileInput').click()">
+            <p>터치해서 TXT 파일을 선택하세요 (다중 선택 가능)</p>
+            <input type="file" id="fileInput" multiple accept=".txt" style="display:none;" onchange="handleFileProcess()">
+        </div>
+        
+        <div id="inspectBox" class="inspect-box"></div>
+        
+        <div class="file-list" id="fileList" style="display:none;"></div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">합치기 옵션</div>
+        <label class="checkbox-label">
+            <input type="checkbox" id="stripTocOpt" checked>
+            텍스트 본문 내 불필요한 목차 줄 자동 제거
+        </label>
+        <label class="checkbox-label">
+            <input type="checkbox" id="compressSpaceOpt" checked>
+            목차 삭제 후 남은 대형 공백(빈 줄) 안전 압축
+        </label>
+    </div>
+
+    <div class="card">
+        <div class="card-title">저장할 제목</div>
+        <input type="text" id="outputName" value="통합본">
+    </div>
+
+    <div class="bottom-btn-wrap">
+        <button class="submit-btn" onclick="mergeTextFiles()">합치기 및 저장</button>
+    </div>
+
+<script>
+let selectedFiles = [];
+
+// 연령 제한 태그를 필터링하여 순수 화수만 추출하는 마스터 정규식
+function getFileNumber(filename) {
+    let cleanName = filename.replace(/1[59]금|1[59]세|1[59]\+|\[1[59]\+?\]|\(1[59]\+?\)|⓳|⓯/g, '');
+    const matches = cleanName.match(/\d+/g);
+    if (!matches) return null;
+    return parseInt(matches[matches.length - 1], 10);
+}
+
+function handleFileProcess() {
+    const input = document.getElementById('fileInput');
+    selectedFiles = Array.from(input.files);
+    
+    if (selectedFiles.length === 0) {
+        document.getElementById('inspectBox').style.display = 'none';
+        document.getElementById('fileList').style.display = 'none';
+        return;
+    }
+
+    selectedFiles.sort((a, b) => {
+        const numA = getFileNumber(a.name);
+        const numB = getFileNumber(b.name);
+        
+        if (numA === null && numB === null) return a.name.localeCompare(b.name);
+        if (numA === null) return 1;
+        if (numB === null) return -1;
+        return numA - numB;
+    });
+
+    runFileInspection();
+
+    const listDiv = document.getElementById('fileList');
+    listDiv.style.display = 'block';
+    listDiv.innerHTML = "<span style='color:#8a6ee5; font-weight:bold;'>합쳐질 순서 확인:</span><br>" + 
+                        selectedFiles.map((f, i) => `${i+1}. ${f.name}`).join('<br>');
+}
+
+function runFileInspection() {
+    const inspectBox = document.getElementById('inspectBox');
+    inspectBox.style.display = 'block';
+
+    const numbers = selectedFiles.map(f => getFileNumber(f.name)).filter(n => n !== null);
+    
+    if (numbers.length === 0) {
+        inspectBox.className = "inspect-box inspect-warning";
+        inspectBox.innerHTML = "⚠️ 파일명에서 화수(숫자)를 찾을 수 없습니다. 순서가 올바르지 않을 수 있습니다.";
+        return;
+    }
+
+    const minNum = numbers[0];
+    const maxNum = numbers[numbers.length - 1];
+    
+    const seen = new Set();
+    const duplicates = [];
+    for (let num of numbers) {
+        if (seen.has(num)) {
+            if (!duplicates.includes(num)) duplicates.push(num);
+        }
+        seen.add(num);
+    }
+
+    const missing = [];
+    for (let i = minNum; i <= maxNum; i++) {
+        if (!seen.has(i)) {
+            missing.push(i);
+        }
+    }
+
+    let htmlResult = `<strong>📊 실시간 검수 결과 (${minNum}화/권 ~ ${maxNum}화/권 기준)</strong><br>`;
+    let isClean = true;
+
+    if (missing.length > 0) {
+        isClean = false;
+        htmlResult += `❌ <strong>누락 발견:</strong> [ ${missing.join(', ')} ]이 빠져 있습니다.<br>`;
+    }
+    if (duplicates.length > 0) {
+        isClean = false;
+        htmlResult += `⚠️ <strong>중복 발견:</strong> [ ${duplicates.join(', ')} ]이 여러 개 겹쳐 있습니다.<br>`;
+    }
+
+    if (isClean) {
+        inspectBox.className = "inspect-box inspect-success";
+        htmlResult += `✅ 누락이나 중복 없이 연속된 순서가 완벽하게 채워져 있습니다!`;
+    } else {
+        inspectBox.className = "inspect-box inspect-warning";
+    }
+
+    inspectBox.innerHTML = htmlResult;
+}
+
+function readFileAsText(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = (e) => reject(e);
+        reader.readAsText(file, 'UTF-8');
+    });
+}
+
+function cleanTextContent(rawText, shouldStripToc, shouldCompressSpace) {
+    const lines = rawText.split('\n');
+    const cleanedLines = [];
+    const tocRegExp = /^(목차|프롤로그|에필로그|chapter\s*\d+|ch\.\d+)/i;
+    
+    let consecutiveEmptyCount = 0;
+    
+    for (let line of lines) {
+        let trimmed = line.trim();
+        
+        if (shouldStripToc && trimmed && tocRegExp.test(trimmed)) {
+            if (trimmed.length <= 30) {
+                continue; 
+            }
+        }
+        
+        if (shouldCompressSpace) {
+            if (trimmed === '') {
+                consecutiveEmptyCount++;
+                if (consecutiveEmptyCount > 2) {
+                    continue; 
+                }
+            } else {
+                consecutiveEmptyCount = 0; 
+            }
+        }
+        
+        cleanedLines.push(line);
+    }
+    return cleanedLines.join('\n');
+}
+
+async function mergeTextFiles() {
+    if (selectedFiles.length === 0) {
+        alert("합칠 텍스트 파일을 먼저 업로드해주세요!");
+        return;
+    }
+
+    const baseName = document.getElementById('outputName').value.trim() || "통합본";
+    const finalFileName = baseName + ".txt";
+    const shouldStripToc = document.getElementById('stripTocOpt').checked;
+    const shouldCompressSpace = document.getElementById('compressSpaceOpt').checked;
+    
+    try {
+        const filePromises = selectedFiles.map(async (file) => {
+            let text = await readFileAsText(file);
+            
+            text = cleanTextContent(text, shouldStripToc, shouldCompressSpace);
+            
+            const fileNameWithoutExt = file.name.replace('.txt', '');
+            return `\n\n[ ${fileNameWithoutExt} ]\n\n${text}`;
+        });
+
+        const textResults = await Promise.all(filePromises);
+        const combinedText = textResults.join('');
+
+        const blob = new Blob([combinedText], { type: "text/plain;charset=utf-8;" });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = finalFileName;
+        link.click();
+        
+    } catch (error) {
+        alert("파일 병합 중 오류가 발생했습니다.");
+    }
+}
+</script>
+
+</body>
+</html>
