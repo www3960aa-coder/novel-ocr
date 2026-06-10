@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TXT 합권기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #0F0E17;
+    --surface:  #1C1B2E;
+    --elevated: #26253D;
+    --border:   #38375A;
+    --amber:    #F4A261;
+    --amber-dim:#A8652F;
+    --text:     #FFFAEF;
+    --text-dim: #9B99B8;
+    --green:    #6EE7B7;
+    --red:      #F87171;
+    --radius:   10px;
+    --mono: 'SF Mono','Consolas','Menlo',monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    min-height: 100dvh;
+    padding: 20px 16px 60px;
+  }
+
+  /* ── 헤더 ── */
+  header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+  header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+  header h1 span { color: var(--amber); }
+  header .sub {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-weight: 300;
+  }
+
+  /* ── 드롭존 ── */
+  #dropzone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 36px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+    background: var(--surface);
+    position: relative;
+  }
+  #dropzone.over {
+    border-color: var(--amber);
+    background: #1f1d33;
+  }
+  #dropzone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer;
+  }
+  .drop-icon { font-size: 32px; margin-bottom: 8px; }
+  .drop-label { color: var(--text-dim); font-size: 14px; }
+  .drop-label strong { color: var(--amber); }
+
+  /* ── 옵션 바 ── */
+  #options {
+    margin-top: 14px;
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 20px;
+    align-items: center;
+  }
+  .opt-label {
+    font-size: 12px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .opt-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .opt-row input[type=text] {
+    background: var(--elevated);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: var(--mono);
+    padding: 4px 8px;
+    width: 180px;
+  }
+  .opt-row input[type=text]:focus { outline: 1px solid var(--amber); }
+
+  /* ── 파일 목록 ── */
+  #file-list-wrap {
+    margin-top: 14px;
+    display: none;
+  }
+  #file-list-wrap h2 {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    margin-bottom: 8px;
+  }
+  #file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 260px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  #file-list::-webkit-scrollbar { width: 4px; }
+  #file-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .file-item {
+    background: var(--surface);
+    border-radius: 7px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    cursor: grab;
+    user-select: none;
+    transition: background .15s;
+  }
+  .file-item:active { cursor: grabbing; }
+  .file-item.dragging { opacity: .4; }
+  .file-item.drag-over { background: var(--elevated); border: 1px solid var(--amber); }
+  .fi-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--amber);
+    min-width: 24px;
+    text-align: right;
+  }
+  .fi-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fi-tag {
+    font-size: 10px;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+  .tag-ch   { background: #2a3a5e; color: #93c5fd; }
+  .tag-pro  { background: #2a3d2e; color: #6ee7b7; }
+  .tag-epi  { background: #3d2a3d; color: #d8b4fe; }
+  .tag-ext  { background: #3d342a; color: #fcd34d; }
+  .tag-file { background: var(--elevated); color: var(--text-dim); }
+  .fi-del {
+    background: none; border: none; color: var(--text-dim);
+    font-size: 16px; cursor: pointer; line-height: 1;
+    padding: 0 2px;
+  }
+  .fi-del:hover { color: var(--red); }
+
+  /* ── 목차 미리보기 ── */
+  #toc-wrap {
+    margin-top: 14px;
+    display: none;
+  }
+  #toc-wrap h2 {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .toc-count {
+    background: var(--amber-dim);
+    color: var(--amber);
+    border-radius: 20px;
+    font-size: 11px;
+    padding: 0 8px;
+    font-family: var(--mono);
+  }
+  #toc-list {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 10px 4px;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  #toc-list::-webkit-scrollbar { width: 4px; }
+  #toc-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .toc-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    transition: background .1s;
+  }
+  .toc-item:hover { background: var(--elevated); }
+  .toc-idx {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--amber);
+    min-width: 22px;
+    text-align: right;
+  }
+
+  /* ── 액션 버튼 ── */
+  #actions {
+    margin-top: 18px;
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: var(--radius);
+    border: none;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity .15s, transform .1s;
+  }
+  .btn:active { transform: scale(.98); }
+  .btn-primary {
+    background: var(--amber);
+    color: #0F0E17;
+  }
+  .btn-secondary {
+    background: var(--elevated);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* ── 출력 미리보기 ── */
+  #output-wrap {
+    margin-top: 20px;
+    display: none;
+  }
+  #output-wrap h2 {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    margin-bottom: 8px;
+  }
+  #output-preview {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.7;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: #c8c6e8;
+  }
+  #output-preview::-webkit-scrollbar { width: 4px; }
+  #output-preview::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .hl-sep   { color: var(--amber); }
+  .hl-title { color: var(--green); }
+  .hl-body  { color: #c8c6e8; }
+
+  /* ── 토스트 ── */
+  #toast {
+    position: fixed;
+    bottom: 24px; left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--elevated);
+    border: 1px solid var(--border);
+    border-radius: 30px;
+    padding: 10px 20px;
+    font-size: 13px;
+    transition: transform .25s cubic-bezier(.34,1.56,.64,1);
+    z-index: 999;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+  #toast.ok   { border-color: var(--green); color: var(--green); }
+  #toast.err  { border-color: var(--red);   color: var(--red); }
+
+  /* ── 통계 바 ── */
+  #stats {
+    margin-top: 10px;
+    display: none;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .stat {
+    background: var(--surface);
+    border-radius: 8px;
+    padding: 8px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    min-width: 70px;
+  }
+  .stat-val {
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--amber);
+  }
+  .stat-lbl { font-size: 11px; color: var(--text-dim); }
+
+  hr.section-div {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 18px 0;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>TXT <span>합권기</span></h1>
+  <span class="sub">웹소설 TXT → EPUB 변환용 합본</span>
+</header>
+
+<!-- 드롭존 -->
+<div id="dropzone">
+  <input type="file" id="fileInput" multiple accept=".txt">
+  <div class="drop-icon">📂</div>
+  <div class="drop-label"><strong>TXT 파일 선택</strong> 또는 여기로 드래그</div>
+  <div class="drop-label" style="margin-top:4px;font-size:12px;">여러 파일 동시 선택 가능 · 모바일은 탭하여 파일 선택</div>
+</div>
+
+<!-- 옵션 -->
+<div id="options">
+  <div class="opt-row">
+    <span class="opt-label">소설 제목</span>
+    <input type="text" id="opt-title" placeholder="제목" value="">
+  </div>
+  <div class="opt-row">
+    <span class="opt-label">작가명</span>
+    <input type="text" id="opt-author" placeholder="작가명" value="">
+  </div>
+  <div style="width:100%;padding-top:2px;">
+    <span class="opt-label">저장 파일명: </span>
+    <span id="fname-preview" style="font-family:var(--mono);font-size:12px;color:var(--amber);">입력하면 표시됩니다</span>
+  </div>
+</div>
+
+<!-- 파일 목록 -->
+<div id="file-list-wrap">
+  <h2>파일 목록 <span style="color:var(--text-dim);font-size:11px;font-weight:400;">(드래그로 순서 변경)</span></h2>
+  <div id="file-list"></div>
+</div>
+
+<!-- 통계 -->
+<div id="stats">
+  <div class="stat"><span class="stat-val" id="s-files">0</span><span class="stat-lbl">파일</span></div>
+  <div class="stat"><span class="stat-val" id="s-chapters">0</span><span class="stat-lbl">챕터</span></div>
+  <div class="stat"><span class="stat-val" id="s-chars">0</span><span class="stat-lbl">글자수</span></div>
+</div>
+
+<!-- 목차 미리보기 -->
+<div id="toc-wrap">
+  <h2>목차 미리보기 <span class="toc-count" id="toc-count">0</span></h2>
+  <div id="toc-list"></div>
+</div>
+
+<!-- 액션 버튼 -->
+<div id="actions">
+  <button class="btn btn-primary" id="btn-download">⬇ 합본 TXT 다운로드</button>
+  <button class="btn btn-secondary" id="btn-clear">파일 목록 초기화</button>
+</div>
+
+<!-- 출력 미리보기 -->
+<div id="output-wrap">
+  <h2>출력 미리보기 <span style="font-weight:300;">(앞부분)</span></h2>
+  <div id="output-preview"></div>
+</div>
+
+<!-- 토스트 -->
+<div id="toast"></div>
+
+<script>
+// ── 상태 ──
+let fileEntries = []; // {file, name, tag, order}
+let dragSrc = null;
+
+// ── 유틸 ──
+function toast(msg, type='ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show ' + type;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.className = '', 2200);
+}
+
+// 자연 정렬
+function naturalSort(a, b) {
+  const re = /(\d+)/g;
+  const as = a.name.split(re), bs = b.name.split(re);
+  for (let i = 0; i < Math.max(as.length, bs.length); i++) {
+    const av = as[i] || '', bv = bs[i] || '';
+    if (/^\d+$/.test(av) && /^\d+$/.test(bv)) {
+      const d = parseInt(av,10) - parseInt(bv,10);
+      if (d !== 0) return d;
+    } else {
+      const d = av.localeCompare(bv, 'ko');
+      if (d !== 0) return d;
+    }
+  }
+  return 0;
+}
+
+// BOM + 제어문자 제거
+function cleanText(buf) {
+  let text;
+  const bytes = new Uint8Array(buf);
+  if (bytes[0]===0xEF && bytes[1]===0xBB && bytes[2]===0xBF) {
+    text = new TextDecoder('utf-8').decode(buf.slice(3));
+  } else {
+    try { text = new TextDecoder('utf-8',{fatal:true}).decode(buf); }
+    catch { text = new TextDecoder('euc-kr').decode(buf); }
+  }
+  // 제어문자 제거 (탭·줄바꿈 제외)
+  text = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F\uFFFD]/g, '');
+  return text;
+}
+
+// 파일명에서 챕터 제목 추출
+function titleFromFilename(fname) {
+  let t = fname.replace(/\.txt$/i, '');
+  // 앞쪽 0 패딩 제거: 001화 → 1화, 001. → 1.
+  t = t.replace(/^0+(\d)/, '$1');
+  // 구분자(_) → 공백
+  t = t.replace(/[_]/g, ' ').trim();
+  // 앞뒤 공백 정리
+  t = t.replace(/\s+/g, ' ').trim();
+  return t;
+}
+
+// 챕터 태그 감지
+function detectTag(title) {
+  if (/프롤로그/i.test(title)) return 'pro';
+  if (/에필로그/i.test(title)) return 'epi';
+  if (/외전|外傳/i.test(title)) return 'ext';
+  if (/^\d+화/.test(title) || /제\s*\d+/.test(title)) return 'ch';
+  return 'file';
+}
+
+const tagLabel = { ch:'챕터', pro:'프롤로그', epi:'에필로그', ext:'외전', file:'파일' };
+const tagClass = { ch:'tag-ch', pro:'tag-pro', epi:'tag-epi', ext:'tag-ext', file:'tag-file' };
+
+
+function autoMetaFromFilename() {
+  if (!fileEntries.length) return;
+
+  const firstName = fileEntries[0].name.replace(/\.txt$/i, '');
+  const match = firstName.match(/^\[([^\]]+)\]\s*(.+?)(?:\s+\d+.*)?$/);
+
+  if (!match) return;
+
+  const author = match[1].trim();
+  const title = match[2].trim();
+
+  const titleInput = document.getElementById('opt-title');
+  const authorInput = document.getElementById('opt-author');
+
+  if (!titleInput.value.trim()) titleInput.value = title;
+  if (!authorInput.value.trim()) authorInput.value = author;
+
+  updateFnamePreview();
+}
+
+// ── 파일 처리 ──
+async function processFiles(newFiles) {
+  const filtered = [...newFiles].filter(f => f.name.toLowerCase().endsWith('.txt'));
+  if (!filtered.length) { toast('TXT 파일을 선택해주세요', 'err'); return; }
+
+  const existing = new Set(fileEntries.map(e => e.file.name));
+  const added = [];
+  for (const f of filtered) {
+    if (!existing.has(f.name)) {
+      const title = titleFromFilename(f.name);
+      added.push({ file: f, name: f.name, title, tag: detectTag(title) });
+    }
+  }
+  if (!added.length) { toast('이미 추가된 파일입니다', 'err'); return; }
+
+  fileEntries.push(...added);
+  fileEntries.sort(naturalSort);
+
+  renderFileList();
+  autoMetaFromFilename();
+  await buildTOC();
+  toast(`${added.length}개 파일 추가됨`);
+}
+
+// ── 파일 목록 렌더 ──
+function renderFileList() {
+  const wrap = document.getElementById('file-list-wrap');
+  const list = document.getElementById('file-list');
+  const actions = document.getElementById('actions');
+  const stats = document.getElementById('stats');
+
+  if (!fileEntries.length) {
+    wrap.style.display = 'none';
+    actions.style.display = 'none';
+    stats.style.display = 'none';
+    return;
+  }
+
+  wrap.style.display = 'block';
+  actions.style.display = 'flex';
+  stats.style.display = 'flex';
+
+  list.innerHTML = '';
+  fileEntries.forEach((entry, i) => {
+    const item = document.createElement('div');
+    item.className = 'file-item';
+    item.draggable = true;
+    item.dataset.idx = i;
+    item.innerHTML = `
+      <span class="fi-num">${String(i+1).padStart(2,'0')}</span>
+      <span class="fi-name" title="${entry.name}">${entry.title}</span>
+      <span class="fi-tag ${tagClass[entry.tag]}">${tagLabel[entry.tag]}</span>
+      <button class="fi-del" data-idx="${i}" title="제거">×</button>
+    `;
+
+    // 드래그 이벤트
+    item.addEventListener('dragstart', e => {
+      dragSrc = i;
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    item.addEventListener('dragend', () => item.classList.remove('dragging'));
+    item.addEventListener('dragover', e => {
+      e.preventDefault();
+      document.querySelectorAll('.file-item').forEach(el => el.classList.remove('drag-over'));
+      item.classList.add('drag-over');
+    });
+    item.addEventListener('drop', e => {
+      e.preventDefault();
+      item.classList.remove('drag-over');
+      if (dragSrc === null || dragSrc === i) return;
+      const moved = fileEntries.splice(dragSrc, 1)[0];
+      fileEntries.splice(i, 0, moved);
+      dragSrc = null;
+      renderFileList();
+      buildTOC();
+    });
+
+    item.querySelector('.fi-del').addEventListener('click', e => {
+      const idx = parseInt(e.target.dataset.idx);
+      fileEntries.splice(idx, 1);
+      renderFileList();
+      buildTOC();
+    });
+
+    list.appendChild(item);
+  });
+
+  document.getElementById('s-files').textContent = fileEntries.length;
+  updateFnamePreview();
+}
+
+// ── 목차 빌드 (비동기 읽기) ──
+async function buildTOC() {
+  const tocWrap = document.getElementById('toc-wrap');
+  const tocList = document.getElementById('toc-list');
+  const tocCount = document.getElementById('toc-count');
+
+  if (!fileEntries.length) {
+    tocWrap.style.display = 'none';
+    document.getElementById('output-wrap').style.display = 'none';
+    return;
+  }
+
+  // 글자수 카운트용 읽기
+  let totalChars = 0;
+  const contents = [];
+
+  for (const entry of fileEntries) {
+    const buf = await entry.file.arrayBuffer();
+    const text = cleanText(buf);
+    contents.push({ entry, text });
+    totalChars += text.replace(/\s/g, '').length;
+  }
+
+  document.getElementById('s-chars').textContent = totalChars > 10000
+    ? (totalChars/10000).toFixed(1)+'만'
+    : totalChars.toLocaleString();
+  document.getElementById('s-chapters').textContent = fileEntries.length;
+
+  // 목차 렌더
+  tocWrap.style.display = 'block';
+  tocList.innerHTML = '';
+  let chIdx = 0;
+  contents.forEach(({ entry }, i) => {
+    chIdx++;
+    const item = document.createElement('div');
+    item.className = 'toc-item';
+    const tagSpan = `<span class="fi-tag ${tagClass[entry.tag]}" style="font-size:10px;">${tagLabel[entry.tag]}</span>`;
+    item.innerHTML = `<span class="toc-idx">${chIdx}</span>${tagSpan}<span>${entry.title}</span>`;
+    tocList.appendChild(item);
+  });
+  tocCount.textContent = chIdx;
+
+  // 출력 미리보기
+  renderOutputPreview(contents);
+}
+
+// ── 출력 미리보기 ──
+function renderOutputPreview(contents) {
+  const wrap = document.getElementById('output-wrap');
+  const preview = document.getElementById('output-preview');
+  wrap.style.display = 'block';
+
+  const SEP = '==========';
+  let lines = [];
+  const noTitle = !document.getElementById('opt-title').value.trim();
+  if (!noTitle) {
+    lines.push(`[작품명] ${document.getElementById('opt-title').value.trim()}`);
+    lines.push(`[작가명] ${document.getElementById('opt-author').value.trim() || '미상'}`);
+    lines.push('');
+  }
+
+  for (let i = 0; i < Math.min(contents.length, 3); i++) {
+    const { entry, text } = contents[i];
+    lines.push(SEP);
+    lines.push(`${entry.title}`);
+    lines.push(SEP);
+    const bodyLines = text.split('\n').filter(l => l.trim()).slice(0, 6);
+    lines.push(...bodyLines);
+    lines.push('...');
+    lines.push('');
+  }
+  if (contents.length > 3) lines.push(`... 외 ${contents.length-3}개 챕터`);
+
+  // 색 입히기 (단순 DOM)
+  preview.innerHTML = lines.map(l => {
+    if (l.startsWith('=====')) return `<span class="hl-sep">${l}</span>`;
+    if (l.startsWith('[작품명]') || l.startsWith('[작가명]')) return `<span style="color:var(--amber)">${l}</span>`;
+    const isTitleLine = contents.some(c => l === c.entry.title);
+    if (isTitleLine) return `<span class="hl-title">${l}</span>`;
+    return `<span class="hl-body">${escHtml(l)}</span>`;
+  }).join('\n');
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── 합본 TXT 생성 & 다운로드 ──
+async function downloadMerged() {
+  if (!fileEntries.length) return;
+
+  const btn = document.getElementById('btn-download');
+  btn.disabled = true;
+  btn.textContent = '⏳ 처리 중...';
+
+  try {
+    const title   = document.getElementById('opt-title').value.trim();
+    const author  = document.getElementById('opt-author').value.trim();
+    const SEP = '==========';
+    const lines = [];
+
+    // 헤더 메타
+    if (title) {
+      lines.push(`[작품명] ${title}`);
+      lines.push(`[작가명] ${author || '미상'}`);
+      lines.push(`[권수] ${fileEntries.length}권`);
+      lines.push('');
+    }
+
+    for (const entry of fileEntries) {
+      const buf = await entry.file.arrayBuffer();
+      const text = cleanText(buf);
+      const bodyLines = text.split(/\r?\n/);
+
+      lines.push(SEP);
+      lines.push(entry.title);   // 정규화된 챕터 제목
+      lines.push(SEP);
+
+      // 본문: 첫 줄이 챕터 제목과 동일하면 스킵 (중복 방지)
+      let skipFirst = false;
+      for (let li = 0; li < bodyLines.length; li++) {
+        const trimmed = bodyLines[li].trim();
+        if (!skipFirst && li === 0 && trimmed === entry.title) { skipFirst = true; continue; }
+        // 앞쪽 빈줄 건너뛰기 (본문 시작 전)
+        if (!skipFirst && li === 0 && !trimmed) continue;
+        break;
+      }
+      // 실제 본문 빌드
+      let blank = 0;
+      let started = false;
+      for (const raw of bodyLines) {
+        const l = raw.trimEnd();
+        const trimmed = l.trim();
+        // 첫 줄 중복 제목 스킵
+        if (!started && trimmed === entry.title) { started = true; continue; }
+        started = true;
+        if (!trimmed) {
+          if (blank < 2) { lines.push(''); blank++; }
+        } else {
+          blank = 0;
+          lines.push(l);
+        }
+      }
+      // 챕터 사이 구분 빈줄
+      lines.push('');
+      lines.push('');
+    }
+
+    const merged = lines.join('\n');
+    const blob = new Blob(['\uFEFF' + merged], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const volCount = fileEntries.length;
+    const volSuffix = volCount === 1 ? ' 1권' : ` 1~${volCount}권`;
+    const fname = `[${author || '작가'}]${title || '합본'}${volSuffix}.txt`;
+    a.download = fname;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast(`✓ ${fname} 다운로드`);
+  } catch(e) {
+    toast('오류: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⬇ 합본 TXT 다운로드';
+  }
+}
+
+// ── 초기화 ──
+function clearAll() {
+  fileEntries = [];
+  document.getElementById('file-list').innerHTML = '';
+  document.getElementById('file-list-wrap').style.display = 'none';
+  document.getElementById('toc-wrap').style.display = 'none';
+  document.getElementById('output-wrap').style.display = 'none';
+  document.getElementById('actions').style.display = 'none';
+  document.getElementById('stats').style.display = 'none';
+  document.getElementById('fileInput').value = '';
+  toast('초기화됨');
+}
+
+// ── 이벤트 바인딩 ──
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('over'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('over'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('over');
+  processFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', e => processFiles(e.target.files));
+
+document.getElementById('btn-download').addEventListener('click', downloadMerged);
+document.getElementById('btn-clear').addEventListener('click', clearAll);
+
+function updateFnamePreview() {
+  const title  = document.getElementById('opt-title').value.trim();
+  const author = document.getElementById('opt-author').value.trim();
+  const volCount = fileEntries.length;
+  const volSuffix = volCount === 0 ? '_1~N권' : (volCount === 1 ? '_1권' : `_1~${volCount}권`);
+  const authorPart = author ? `[${author}] ` : '';
+  document.getElementById('fname-preview').textContent = authorPart + (title || '합본') + volSuffix + '.txt';
+}
+
+['opt-title','opt-author'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    updateFnamePreview();
+    if (fileEntries.length) buildTOC();
+  });
+});
+updateFnamePreview();
+</script>
+</body>
+</html>
