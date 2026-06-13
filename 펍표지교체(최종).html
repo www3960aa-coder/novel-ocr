@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>EPUB 표지 교체 마스터 (용량 최적화 고속 버전)</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    body { -webkit-tap-highlight-color: transparent; }
+    /* iOS 다운로드 안내 오버레이 CSS */
+    #ios-save-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      z-index: 200; align-items: flex-end; justify-content: center;
+    }
+    #ios-save-overlay.open { display: flex; }
+    #ios-save-sheet {
+      background: white; width: 100%; max-width: 28rem;
+      border-radius: 1.5rem 1.5rem 0 0; padding: 1.5rem;
+      padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+    }
+  </style>
+</head>
+<body class="bg-[#F4F4F2] text-[#333333] font-sans select-none antialiased pb-12">
+
+  <header class="bg-[#1A1A1A] text-white px-4 py-4 sticky top-0 z-40 shadow-sm mb-6">
+    <div class="flex items-center justify-center max-w-md mx-auto relative">
+      <h1 class="text-xl font-bold tracking-wide">EPUB 표지 교체 도구</h1>
+      <span id="ios-badge" class="hidden absolute right-0 text-[10px] bg-white/20 text-white px-2 py-0.5 rounded-full font-bold">iOS 모드</span>
+    </div>
+  </header>
+
+  <main class="max-w-md mx-auto px-4 space-y-4">
+    
+    <div class="bg-white p-5 rounded-2xl shadow-xs">
+      <label class="block text-xs font-bold text-gray-400 mb-2 tracking-wider">대상 EPUB 파일</label>
+      <input type="file" id="change-epub-input" accept=".epub" class="hidden" onchange="handleTargetEpubUpload(this)">
+      <div onclick="document.getElementById('change-epub-input').click()" class="border-2 border-dashed border-gray-200 rounded-xl p-7 text-center cursor-pointer hover:bg-gray-50 active:bg-gray-100 transition">
+        <span id="change-epub-status" class="text-sm text-gray-500 font-medium">+ EPUB 파일 선택</span>
+      </div>
+    </div>
+
+    <div class="bg-white p-5 rounded-2xl shadow-xs">
+      <label class="block text-xs font-bold text-gray-400 mb-2 tracking-wider">새 표지 이미지 (자동 압축 적용)</label>
+      <input type="file" id="change-cover-input" accept="image/*" class="hidden" onchange="handleStandaloneCoverUpload(this)">
+      <div class="flex gap-4">
+        <div id="change-cover-preview" class="w-22 h-30 bg-[#EFEFEF] border border-gray-100 rounded-xl flex items-center justify-center p-2 text-center shrink-0 overflow-hidden transition hover:bg-gray-100">
+          <span class="text-xs text-gray-400 leading-tight font-medium">표지<br>선택</span>
+        </div>
+        <div class="flex-1 flex flex-col justify-center">
+          <button onclick="document.getElementById('change-cover-input').click()" class="w-full py-3 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition">새 이미지 고르기</button>
+        </div>
+      </div>
+    </div>
+
+    <button onclick="executeCoverChange()" id="run-btn" class="w-full bg-[#1A1A1A] text-white py-4 rounded-xl font-bold text-base active:bg-black transition shadow-lg">표지 교체 및 용량 최적화 시작</button>
+
+    <div class="bg-[#1e1e1e] text-[#00ff00] p-4 rounded-xl text-xs font-mono h-32 overflow-y-auto mt-4" id="log-console">
+      > 시스템 준비 완료. 파일을 업로드해 주세요.
+    </div>
+
+  </main>
+
+  <div id="ios-save-overlay" onclick="closeIosSaveOverlay()">
+    <div id="ios-save-sheet" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold text-gray-900">📥 파일 저장하기</h3>
+        <button onclick="closeIosSaveOverlay()" class="text-gray-400 text-sm font-bold px-2 py-1">닫기</button>
+      </div>
+      <p class="text-sm text-gray-600 leading-relaxed mb-4">
+        iOS는 자동 다운로드를 지원하지 않습니다.<br>아래 버튼을 탭해 파일을 여세요.
+      </p>
+      <a id="ios-open-btn" href="#" target="_blank"
+        class="block w-full py-3.5 bg-blue-600 text-white text-center font-bold rounded-xl text-sm mb-3 active:bg-blue-700 transition">
+        📂 파일 열기 (새 탭)
+      </a>
+      <p class="text-[11px] text-gray-500 leading-relaxed mb-3">
+        새 탭에서 파일이 열리면:<br>
+        <span class="font-bold">공유 버튼(□↑) → "파일에 저장"</span> 또는<br>
+        <span class="font-bold">링크 길게 탭 → "다운로드 링크"</span>
+      </p>
+      <p id="ios-filename-display" class="text-center text-[11px] text-gray-400 font-mono mt-3 truncate"></p>
+    </div>
+  </div>
+
+  <script>
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isIOSChrome = isIOS && /CriOS/.test(navigator.userAgent);
+    if (isIOS) {
+      const badge = document.getElementById('ios-badge');
+      badge.textContent = isIOSChrome ? 'iOS Chrome 모드' : 'iOS 모드';
+      badge.classList.remove('hidden');
+    }
+
+    let coverChangeTargetEpub = null;
+    let localCoverBlob = null;
+    let localCoverType = "";
+    let currentBlobUrl = null; 
+
+    function log(msg) {
+      const consoleEl = document.getElementById('log-console');
+      if (consoleEl) {
+        consoleEl.innerHTML += `<br>> ${msg}`;
+        consoleEl.scrollTop = consoleEl.scrollHeight;
+      }
+    }
+
+    async function triggerDownload(blob, filename) {
+      let finalName = filename;
+      if (blob.type === 'application/epub+zip' || finalName.match(/\.epub$/i)) {
+        finalName = finalName.replace(/\.(zip|epub)$/i, '') + '.epub';
+      }
+      const epubBlob = blob.type === 'application/epub+zip' ? blob : new Blob([blob], {type: 'application/epub+zip'});
+
+      if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+      currentBlobUrl = URL.createObjectURL(epubBlob);
+
+      if (isIOS) {
+        // 1순위: Web Share API — Chrome iOS·Safari iOS 15+ 모두 지원
+        const shareFile = new File([epubBlob], finalName, { type: 'application/epub+zip', lastModified: Date.now() });
+        if (navigator.canShare && navigator.canShare({ files: [shareFile] })) {
+          try {
+            await navigator.share({ files: [shareFile], title: finalName });
+            log('✅ 공유 완료');
+            return;
+          } catch (e) {
+            if (e.name === 'AbortError') { log('공유 취소됨'); return; }
+            // 공유 실패 → 바텀시트 폴백으로 계속
+          }
+        }
+        // 2순위: 바텀시트 (Blob URL 새 탭 + 공유 버튼 안내)
+        const btn = document.getElementById('ios-open-btn');
+        btn.href = currentBlobUrl;
+        btn.download = finalName;
+        document.getElementById('ios-filename-display').textContent = finalName;
+        document.getElementById('ios-save-overlay').classList.add('open');
+      } else {
+        const a = document.createElement('a');
+        a.href = currentBlobUrl;
+        a.download = finalName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => { URL.revokeObjectURL(currentBlobUrl); currentBlobUrl = null; }, 5000);
+      }
+    }
+
+    function closeIosSaveOverlay() {
+      document.getElementById('ios-save-overlay').classList.remove('open');
+    }
+
+    function finalSearchOpfPath(paths) {
+      let opf = paths.find(p => p.endsWith('.opf'));
+      if (!opf) opf = paths.find(p => p.toLowerCase().includes('content.opf'));
+      return opf || "";
+    }
+
+    function handleTargetEpubUpload(input) {
+      if (!input.files.length) return;
+      coverChangeTargetEpub = input.files[0];
+      
+      document.getElementById('change-epub-status').innerHTML = 
+        `<span class="text-blue-600 font-bold block truncate max-w-[250px] mx-auto">${coverChangeTargetEpub.name}</span>
+         <span class="text-xs text-gray-400 font-normal">(${(coverChangeTargetEpub.size/1024/1024).toFixed(2)}MB)</span>`;
+      
+      log(`대상 EPUB 장착: ${coverChangeTargetEpub.name}`);
+    }
+
+    function handleStandaloneCoverUpload(input) {
+      if (!input.files.length) return;
+      const file = input.files[0];
+      log(`원본 이미지 분석 중: ${(file.size/1024).toFixed(1)}KB`);
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          const MAX_WIDTH = 1200;
+          if (width > MAX_WIDTH) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(function(blob) {
+            localCoverBlob = blob;
+            localCoverType = "image/jpeg";
+            document.getElementById('change-cover-preview').innerHTML = `<img src="${URL.createObjectURL(blob)}" class="w-full h-full object-cover rounded-xl"/>`;
+            log(`이미지 최적화 완료: ${(blob.size/1024).toFixed(1)}KB (JPEG 변환 완료)`);
+          }, 'image/jpeg', 0.85);
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function executeCoverChange() {
+      if (!coverChangeTargetEpub) { alert("대상 EPUB 파일을 등록하세요."); return; }
+      if (!localCoverBlob) { alert("새 표지 이미지를 선택하세요."); return; }
+
+      const btn = document.getElementById('run-btn');
+      btn.disabled = true;
+      btn.textContent = '처리 중...';
+      btn.className = btn.className.replace('bg-[#1A1A1A]', 'bg-gray-400');
+
+      log("EPUB 파일 내부 구조(Calibre/Sigil 호환) 분석 중...");
+      try {
+        const zip = await JSZip.loadAsync(coverChangeTargetEpub);
+        const allPaths = Object.keys(zip.files);
+        
+        const opfPath = finalSearchOpfPath(allPaths);
+        if (!opfPath) throw new Error("EPUB 내부에서 content.opf 파일을 찾을 수 없습니다.");
+
+        let opfText = await zip.file(opfPath).async("text");
+        const parser = new DOMParser();
+        const opfDoc = parser.parseFromString(opfText, "text/xml");
+
+        let coverHref = null;
+        const items = Array.from(opfDoc.getElementsByTagName('item'));
+        
+        // 1. 시길/캘리버 최신 EPUB3 방식 (properties="cover-image")
+        const propCoverItem = items.find(item => (item.getAttribute('properties') || '').includes('cover-image'));
+        if (propCoverItem) {
+          coverHref = propCoverItem.getAttribute('href');
+          log("EPUB3 규격(cover-image 속성) 표지 감지");
+        }
+
+        // 2. 구형 EPUB2 방식 (meta 태그)
+        if (!coverHref) {
+          const metas = Array.from(opfDoc.getElementsByTagName('meta'));
+          const metaCover = metas.find(m => m.getAttribute('name') === 'cover');
+          if (metaCover) {
+            const coverId = metaCover.getAttribute('content');
+            const idItem = items.find(item => item.getAttribute('id') === coverId);
+            if (idItem) {
+              coverHref = idItem.getAttribute('href');
+              log("EPUB2 규격(meta 태그) 표지 감지");
+            }
+          }
+        }
+
+        // 3. 이름 강제 추론 방식 (표지 정보가 꼬여있을 때)
+        if (!coverHref) {
+          const fallbackItem = items.find(item => {
+            const id = (item.getAttribute('id') || '').toLowerCase();
+            const href = (item.getAttribute('href') || '').toLowerCase();
+            return (id.includes('cover') || href.includes('cover') || href.includes('title')) && 
+                   /\.(jpg|jpeg|png|webp|gif)$/i.test(href);
+          });
+          if (fallbackItem) {
+            coverHref = fallbackItem.getAttribute('href');
+            log("이름 추론(Fallback)으로 표지 감지");
+          }
+        }
+
+        let oebpsBase = opfPath.includes('/') ? opfPath.substring(0, opfPath.lastIndexOf('/') + 1) : "";
+
+        if (coverHref) {
+          // 캘리버 등에서 띄어쓰기를 URL 인코딩(%20 등) 한 경우를 위해 디코딩 처리
+          const decodedHref = decodeURIComponent(coverHref);
+          const fullImgPath = oebpsBase + decodedHref;
+          zip.file(fullImgPath, localCoverBlob);
+          log(`기존 표지 파일 덮어쓰기 완료: ${fullImgPath}`);
+        } else {
+          // 표지 정보가 아예 없는 경우 OPF 강제 수정 및 파일 주입
+          const newImgName = "cover_generated_new.jpg";
+          const newImgPath = oebpsBase + newImgName;
+          zip.file(newImgPath, localCoverBlob);
+          
+          const manifest = opfDoc.getElementsByTagName('manifest')[0];
+          if (manifest) {
+            const newItem = opfDoc.createElement('item');
+            newItem.setAttribute('id', 'new-cover-generated');
+            newItem.setAttribute('href', newImgName);
+            newItem.setAttribute('media-type', 'image/jpeg');
+            newItem.setAttribute('properties', 'cover-image');
+            manifest.appendChild(newItem);
+            
+            const metadata = opfDoc.getElementsByTagName('metadata')[0];
+            if (metadata) {
+              const newMeta = opfDoc.createElement('meta');
+              newMeta.setAttribute('name', 'cover');
+              newMeta.setAttribute('content', 'new-cover-generated');
+              metadata.appendChild(newMeta);
+            }
+            
+            const serializer = new XMLSerializer();
+            zip.file(opfPath, serializer.serializeToString(opfDoc));
+            log(`OPF 강제 수정 및 신규 표지 생성 완료: ${newImgPath}`);
+          } else {
+             zip.file(newImgPath, localCoverBlob);
+             log(`주의: OPF 구조를 뜯어고치지 못해 파일만 강제 주입되었습니다.`);
+          }
+        }
+
+        log("고집적 알고리즘(DEFLATE Level 6) 압축 가동 중...");
+        zip.file("mimetype", "application/epub+zip", { compression: "STORE" });
+        
+        const output = await zip.generateAsync({
+          type: "blob",
+          mimeType: "application/epub+zip",
+          compression: "DEFLATE",
+          compressionOptions: { level: 6 }
+        });
+
+        log(`✅ 압축 성공! 최종 용량: ${(output.size/1024/1024).toFixed(2)}MB`);
+        await triggerDownload(output, `[표지교체]_${coverChangeTargetEpub.name}`);
+
+      } catch (err) {
+        log(`❌ 에러 발생: ${err.message}`);
+        alert(`오류가 발생했습니다:\n${err.message}`);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '표지 교체 및 용량 최적화 시작';
+        btn.className = btn.className.replace('bg-gray-400', 'bg-[#1A1A1A]');
+      }
+    }
+  </script>
+</body>
+</html>
