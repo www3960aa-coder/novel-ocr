@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>EPUB 합권</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    :root {
+      --ink:    #1B2340;
+      --ink2:   #2C3B60;
+      --ink3:   #3D5080;
+      --gold:   #C9A84C;
+      --gold2:  #E8C96A;
+      --cream:  #F5F0E8;
+      --paper:  #FDFAF4;
+      --paper2: #F8F3EA;
+      --muted:  #8A92A6;
+    }
+    * { -webkit-tap-highlight-color: transparent; }
+    body {
+      background: var(--cream);
+      color: var(--ink);
+      font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+    }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    input[type=range] {
+      -webkit-appearance: none; appearance: none;
+      height: 5px; border-radius: 9999px; outline: none; cursor: pointer;
+      background: #CBD5E1;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 20px; height: 20px;
+      border-radius: 50%; background: var(--ink); cursor: pointer;
+      border: 2px solid var(--gold); box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    }
+    .file-label-area { -webkit-user-select: none; user-select: none; }
+
+    /* 카드 */
+    .card {
+      background: var(--paper);
+      border: 1px solid rgba(201,168,76,0.18);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 2px 12px rgba(27,35,64,0.07);
+    }
+
+    /* 섹션 레이블 */
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: var(--gold);
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      display: block;
+    }
+
+    /* 점선 업로드 영역 */
+    .upload-zone {
+      border: 2px dashed rgba(201,168,76,0.35);
+      border-radius: 14px;
+      padding: 28px 20px;
+      text-align: center;
+      cursor: pointer;
+      background: var(--paper2);
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .upload-zone:active { background: #EDE8DE; border-color: var(--gold); }
+
+    /* 텍스트 인풋 */
+    .text-input {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--cream);
+      border: 1px solid rgba(27,35,64,0.15);
+      border-radius: 10px;
+      font-size: 13px;
+      color: var(--ink);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .text-input:focus { border-color: var(--gold); }
+
+    /* 파일명 인풋 */
+    .filename-input {
+      width: 100%;
+      padding: 9px 14px;
+      background: rgba(201,168,76,0.07);
+      border: 1px solid rgba(201,168,76,0.3);
+      border-radius: 10px;
+      font-size: 11px;
+      font-family: 'SF Mono', monospace;
+      color: var(--ink2);
+      outline: none;
+    }
+
+    /* 모드 버튼 */
+    .mode-btn {
+      padding: 10px 0;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 700;
+      border: 1.5px solid rgba(27,35,64,0.12);
+      background: var(--paper2);
+      color: var(--muted);
+      transition: all 0.15s;
+      cursor: pointer;
+    }
+    .mode-btn.active {
+      background: var(--ink);
+      border-color: var(--ink);
+      color: var(--gold2);
+    }
+
+    /* 실행 버튼 */
+    .run-btn {
+      width: 100%;
+      padding: 16px;
+      background: var(--ink);
+      color: var(--gold2);
+      font-weight: 700;
+      font-size: 15px;
+      border-radius: 14px;
+      border: 1.5px solid rgba(201,168,76,0.3);
+      cursor: pointer;
+      letter-spacing: 0.04em;
+      box-shadow: 0 4px 20px rgba(27,35,64,0.25);
+      transition: background 0.15s, opacity 0.15s;
+    }
+    .run-btn:active { background: var(--ink2); }
+    .run-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* 터미널 로그 */
+    .terminal {
+      background: var(--ink);
+      border: 1px solid rgba(201,168,76,0.2);
+      border-radius: 12px;
+      padding: 11px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* 토글 스위치 on */
+    .toggle-on  { background: var(--gold) !important; }
+    .toggle-off { background: #CBD5E1 !important; }
+
+    /* 편집기 안 권 카드 */
+    .vol-card {
+      background: var(--paper2);
+      border: 1px solid rgba(201,168,76,0.2);
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    /* 라디오 옵션 */
+    .radio-row {
+      display: flex;
+      align-items: center;
+      padding: 12px 14px;
+      border: 1px solid rgba(27,35,64,0.1);
+      border-radius: 12px;
+      background: var(--paper);
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    .radio-row:active { background: var(--paper2); }
+
+    /* iOS 오버레이 */
+    #ios-save-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(27,35,64,0.65);
+      z-index: 200; align-items: flex-end; justify-content: center;
+    }
+    #ios-save-overlay.open { display: flex; }
+    #ios-save-sheet {
+      background: var(--paper); width: 100%; max-width: 28rem;
+      border-radius: 20px 20px 0 0; padding: 24px;
+      padding-bottom: calc(24px + env(safe-area-inset-bottom));
+      border-top: 2px solid rgba(201,168,76,0.25);
+    }
+
+    /* 배지 */
+    .badge {
+      font-size: 10px; font-weight: 700;
+      padding: 2px 8px; border-radius: 999px;
+    }
+    .badge-muted  { background: rgba(27,35,64,0.1); color: var(--muted); }
+    .badge-blue   { background: rgba(59,130,246,0.12); color: #3B6BC6; }
+    .badge-orange { background: rgba(249,115,22,0.12); color: #C2580F; }
+
+    /* 구분선 */
+    .divider { border: none; border-top: 1px solid rgba(27,35,64,0.08); margin: 10px 0; }
+  </style>
+</head>
+<body class="select-none antialiased pb-16">
+
+  <header style="background: var(--ink); border-bottom: 1px solid rgba(201,168,76,0.25);" class="px-4 py-4 sticky top-0 z-40">
+    <div class="flex items-center justify-between max-w-md mx-auto">
+      <div class="flex items-center gap-2.5">
+        <span style="color: var(--gold2); font-size: 18px;">📚</span>
+        <h1 style="color: var(--gold2); font-size: 18px; font-weight: 800; letter-spacing: 0.04em;">EPUB 합권</h1>
+      </div>
+      <span id="ios-badge" class="hidden badge" style="background: rgba(201,168,76,0.2); color: var(--gold2);">iOS 모드</span>
+    </div>
+  </header>
+
+  <main class="max-w-md mx-auto px-4 pt-4 space-y-3">
+
+    <!-- ① EPUB 파일 선택 -->
+    <div class="card">
+      <span class="section-label">EPUB 파일들</span>
+      <input type="file" id="merge-input" accept=".epub,.zip" multiple class="hidden" onchange="handleEpubMergeUpload(this)">
+      <label for="merge-input" class="file-label-area upload-zone block">
+        <div class="flex flex-col items-center gap-2">
+          <span class="text-2xl">📂</span>
+          <span id="merge-status" style="font-size:13px; color: var(--muted); font-weight:600;">EPUB 파일 선택 (여러 개 가능)</span>
+          <span style="font-size:10px; color: var(--muted);">iOS: 파일 앱에서 선택 → 여러 개 선택 가능</span>
+        </div>
+      </label>
+      <div id="merge-file-list" class="mt-3 space-y-1 max-h-40 overflow-y-auto no-scrollbar" style="font-size:12px; color: var(--muted);"></div>
+    </div>
+
+    <!-- ② 합권 구조 편집기 -->
+    <div id="merge-editor-box" class="hidden card space-y-3">
+      <div class="flex items-center gap-2" style="border-bottom: 1px solid rgba(201,168,76,0.15); padding-bottom: 10px;">
+        <span class="text-sm">📋</span>
+        <span style="font-size:13px; font-weight:700; color: var(--ink);">합권 결과 구조</span>
+      </div>
+      <p style="font-size:11px; color: #8B6914; background: rgba(201,168,76,0.1); border: 1px solid rgba(201,168,76,0.2); border-radius: 10px; padding: 10px; line-height: 1.6;">
+        ✨ 각 분권 이름이 대목차(예: 1권, 2권)로 자동 지정되며, 기존 챕터들은 그 아래 하위 목차로 묶입니다.
+      </p>
+      <div id="merge-chapters-list" class="space-y-3 max-h-[500px] overflow-y-auto no-scrollbar" style="border: 1px solid rgba(201,168,76,0.15); border-radius: 12px; padding: 12px; background: var(--paper2);"></div>
+    </div>
+
+    <!-- ③ 합본 메타 정보 -->
+    <div class="card space-y-2">
+      <span class="section-label">합본 메타 정보</span>
+      <div class="grid grid-cols-2 gap-2">
+        <input type="text" id="merge-title" placeholder="소설 제목" class="text-input"
+          oninput="updateMergeFilenamePreview()">
+        <input type="text" id="merge-author" placeholder="작가명" class="text-input"
+          oninput="updateMergeFilenamePreview()">
+      </div>
+      <div class="mt-1">
+        <label class="block mb-1" style="font-size:10px; color: var(--muted);">저장 파일명 (수정 가능)</label>
+        <input type="text" id="merge-output-filename" placeholder="[작가] 제목 1~N권 完.epub" class="filename-input">
+      </div>
+    </div>
+
+    <!-- ④ 용량 최적화 -->
+    <div class="card space-y-3">
+      <div class="flex items-center justify-between">
+        <span class="section-label" style="margin-bottom:0;">📦 용량 최적화</span>
+        <span id="size-mode-badge" class="badge badge-muted">원본 유지</span>
+      </div>
+      <div class="grid grid-cols-3 gap-2">
+        <button id="size-btn-original" onclick="setSizeMode('original')" class="mode-btn active">원본 유지</button>
+        <button id="size-btn-balanced" onclick="setSizeMode('balanced')" class="mode-btn">균형 압축</button>
+        <button id="size-btn-minimal"  onclick="setSizeMode('minimal')"  class="mode-btn">최대 압축</button>
+      </div>
+      <p id="size-mode-desc" style="font-size:10px; color: var(--muted); line-height:1.6;">이미지/텍스트를 원본 그대로 복사합니다. 용량 변화 없음.</p>
+
+      <div id="size-detail-box" class="hidden space-y-3 pt-2">
+        <hr class="divider">
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between" style="font-size:11px;">
+            <span style="color: var(--ink2); font-weight:600;">🖼 삽화 이미지 품질</span>
+            <span id="img-quality-label" style="font-weight:700; color: var(--gold);">80%</span>
+          </div>
+          <input type="range" id="img-quality-slider" min="40" max="95" value="80" step="5"
+            oninput="updateImgQualityLabel(this.value)" class="w-full">
+          <p style="font-size:10px; color: var(--muted);">낮을수록 용량↓ 화질↓. 70% 이상이면 읽기에 충분합니다.</p>
+        </div>
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between" style="font-size:11px;">
+            <span style="color: var(--ink2); font-weight:600;">📐 이미지 최대 가로 크기</span>
+            <span id="img-maxw-label" style="font-weight:700; color: var(--gold);">1200px</span>
+          </div>
+          <input type="range" id="img-maxw-slider" min="600" max="2400" value="1200" step="100"
+            oninput="updateImgMaxwLabel(this.value)" class="w-full">
+          <p style="font-size:10px; color: var(--muted);">원본이 이 크기보다 크면 축소됩니다. 삽화가 많을수록 효과 큼.</p>
+        </div>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" id="minify-text" checked style="width:16px; height:16px; accent-color: var(--ink);">
+          <span style="font-size:11px; color: var(--ink2); font-weight:500;">HTML/CSS 텍스트 공백 최소화</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- ⑤ 최종 합본 메인 표지 -->
+    <div class="card space-y-2">
+      <span class="section-label">최종 합본의 메인 표지</span>
+      <label class="radio-row">
+        <input type="radio" name="cover-opt" value="none" checked onchange="toggleMergeCoverInput()" style="width:16px;height:16px;accent-color:var(--ink);margin-right:12px;">
+        <span style="font-size:14px; font-weight:500; color: var(--ink);">표지 없음</span>
+      </label>
+      <label class="radio-row">
+        <input type="radio" name="cover-opt" value="custom" onchange="toggleMergeCoverInput()" style="width:16px;height:16px;accent-color:var(--ink);margin-right:12px;">
+        <span style="font-size:14px; font-weight:500; color: var(--ink);">새 메인 표지 지정</span>
+      </label>
+    </div>
+
+    <!-- 새 표지 이미지 -->
+    <div id="merge-cover-box" class="hidden card">
+      <span class="section-label">새 메인 표지 이미지</span>
+      <input type="file" id="merge-cover-input" accept="image/*" class="hidden" onchange="handleCoverUpload(this)">
+      <div class="flex gap-4">
+        <div id="merge-cover-preview" class="shrink-0 overflow-hidden flex items-center justify-center text-center"
+          style="width:76px;height:108px;background:var(--cream);border:1px solid rgba(201,168,76,0.3);border-radius:10px;padding:8px;">
+          <span style="font-size:11px; color:var(--muted); line-height:1.4; font-weight:500;">표지<br>선택</span>
+        </div>
+        <div class="flex-1 flex flex-col justify-center">
+          <label for="merge-cover-input" class="file-label-area block w-full text-center cursor-pointer"
+            style="padding:12px;border:1px solid rgba(27,35,64,0.15);border-radius:12px;font-size:13px;font-weight:600;color:var(--ink2);background:var(--paper);">
+            이미지 선택
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- ⑥ 실행 버튼 -->
+    <button onclick="executeEpubMerge()" id="merge-run-btn" class="run-btn">
+      📖 합권 완료 (.epub)
+    </button>
+
+    <!-- 상태 로그 -->
+    <div class="terminal">
+      <div class="flex items-center gap-2 truncate">
+        <span class="shrink-0" style="width:7px;height:7px;border-radius:50%;background:var(--gold);display:inline-block;animation:pulse 2s infinite;"></span>
+        <span id="terminal-log" class="truncate" style="font-size:11px;color:rgba(245,240,232,0.75);font-family:'SF Mono',monospace;font-weight:500;">대기 중...</span>
+      </div>
+      <button onclick="document.getElementById('terminal-log').innerText='—'" style="font-size:10px;color:rgba(201,168,76,0.5);margin-left:8px;shrink:0;">지우기</button>
+    </div>
+    <style>@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}</style>
+
+  </main>
+
+  <!-- iOS 저장 안내 오버레이 -->
+  <div id="ios-save-overlay" onclick="closeIosSaveOverlay()">
+    <div id="ios-save-sheet" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between" style="margin-bottom:16px;">
+        <h3 style="font-size:15px;font-weight:800;color:var(--ink);">📥 파일 저장하기</h3>
+        <button onclick="closeIosSaveOverlay()" style="font-size:12px;color:var(--muted);font-weight:700;padding:4px 8px;">닫기</button>
+      </div>
+      <p style="font-size:13px;color:var(--ink2);line-height:1.6;margin-bottom:16px;">
+        iOS Safari는 자동 다운로드를 지원하지 않습니다.<br>아래 버튼을 탭해 파일을 여세요.
+      </p>
+      <a id="ios-open-btn" href="#" target="_blank"
+        style="display:block;width:100%;padding:14px;background:var(--ink);color:var(--gold2);text-align:center;font-weight:700;border-radius:12px;font-size:14px;margin-bottom:12px;border:1px solid rgba(201,168,76,0.3);">
+        📂 파일 열기 (새 탭)
+      </a>
+      <p style="font-size:11px;color:var(--muted);line-height:1.7;margin-bottom:12px;">
+        새 탭에서 파일이 열리면:<br>
+        <strong style="color:var(--ink2);">공유 버튼(□↑) → "파일에 저장"</strong> 또는<br>
+        <strong style="color:var(--ink2);">링크 길게 탭 → "다운로드 링크"</strong>
+      </p>
+      <div style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.25);border-radius:12px;padding:12px;">
+        <p style="font-size:11px;color:#8B6914;line-height:1.6;">
+          💡 <strong>더 편리한 방법:</strong> Safari 대신 <strong>Chrome 앱</strong>에서 이 페이지를 열면 자동으로 다운로드됩니다.
+        </p>
+      </div>
+      <p id="ios-filename-display" style="text-align:center;font-size:11px;color:var(--muted);font-family:monospace;margin-top:12px;" class="truncate"></p>
+    </div>
+  </div>
+
+  <script>
+    // ===== iOS 감지 =====
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isIOS) document.getElementById('ios-badge').classList.remove('hidden');
+
+    // ===== 전역 상태 =====
+    let globalCoverBlob = null;
+    let globalCoverType = "";
+    let mergeTargetFiles = [];
+    let parsedChaptersList = [];
+    let mergeCoverInclude = [];
+    let bookCoverFileIds = [];
+    let currentSizeMode = 'original';
+    let currentBlobUrl = null;
+
+    const SIZE_MODES = {
+      original: { badge: '원본 유지',   badgeClass: 'badge-muted',   desc: '이미지/텍스트를 원본 그대로 복사합니다. 용량 변화 없음.' },
+      balanced: { badge: '균형 압축 ON', badgeClass: 'badge-blue',   desc: '이미지를 적당히 압축하고 텍스트 공백을 줄입니다. 화질 손실 거의 없이 20~40% 절약.' },
+      minimal:  { badge: '최대 압축 ON', badgeClass: 'badge-orange', desc: '이미지를 강하게 압축·리사이즈합니다. 삽화 많은 경우 50% 이상 절약 가능.' },
+    };
+
+    // ===== 용량 모드 =====
+    function setSizeMode(mode) {
+      currentSizeMode = mode;
+      ['original','balanced','minimal'].forEach(m => {
+        const btn = document.getElementById(`size-btn-${m}`);
+        btn.className = m === mode ? 'mode-btn active' : 'mode-btn';
+      });
+      const info = SIZE_MODES[mode];
+      const badge = document.getElementById('size-mode-badge');
+      badge.textContent = info.badge;
+      badge.className = `badge ${info.badgeClass}`;
+      document.getElementById('size-mode-desc').textContent = info.desc;
+      const detailBox = document.getElementById('size-detail-box');
+      if (mode === 'original') {
+        detailBox.classList.add('hidden');
+      } else {
+        detailBox.classList.remove('hidden');
+        document.getElementById('img-quality-slider').value = mode === 'balanced' ? 80 : 60;
+        document.getElementById('img-maxw-slider').value    = mode === 'balanced' ? 1200 : 800;
+        updateImgQualityLabel(document.getElementById('img-quality-slider').value);
+        updateImgMaxwLabel(document.getElementById('img-maxw-slider').value);
+      }
+    }
+    function updateImgQualityLabel(v) { document.getElementById('img-quality-label').textContent = v + '%'; }
+    function updateImgMaxwLabel(v)    { document.getElementById('img-maxw-label').textContent = v + 'px'; }
+
+    // ===== 유틸 =====
+    function log(msg) {
+      const el = document.getElementById('terminal-log');
+      if (el) el.innerText = msg;
+    }
+
+    // iOS/Android 분기 다운로드
+    function triggerDownload(blob, filename) {
+      if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+      currentBlobUrl = URL.createObjectURL(blob);
+
+      if (isIOS) {
+        // iOS: 자동 다운로드 불가 → 안내 오버레이 표시
+        const btn = document.getElementById('ios-open-btn');
+        btn.href = currentBlobUrl;
+        btn.download = filename; // Safari에서 동작 안 하더라도 명시
+        document.getElementById('ios-filename-display').textContent = filename;
+        document.getElementById('ios-save-overlay').classList.add('open');
+      } else {
+        // Android/PC: 일반 a.click() 다운로드
+        const a = document.createElement('a');
+        a.href = currentBlobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => { URL.revokeObjectURL(currentBlobUrl); currentBlobUrl = null; }, 5000);
+      }
+    }
+
+    function closeIosSaveOverlay() {
+      document.getElementById('ios-save-overlay').classList.remove('open');
+    }
+
+    // 표지 이미지 업로드
+    function handleCoverUpload(input) {
+      if (!input.files.length) return;
+      const file = input.files[0];
+      globalCoverBlob = file;
+      globalCoverType = file.type || 'image/jpeg';
+      const reader = new FileReader();
+      reader.onload = e => {
+        const preview = document.getElementById('merge-cover-preview');
+        if (preview) preview.innerHTML = `<img src="${e.target.result}" class="w-full h-full object-cover rounded-xl">`;
+        log(`표지 이미지 로드: ${file.name}`);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function toggleMergeCoverInput() {
+      const opt = document.querySelector('input[name="cover-opt"]:checked').value;
+      document.getElementById('merge-cover-box').classList.toggle('hidden', opt !== 'custom');
+    }
+
+    function buildMergeFilename() {
+      const author = document.getElementById('merge-author').value.trim();
+      const title  = document.getElementById('merge-title').value.trim();
+      const n = mergeTargetFiles.length;
+      const range = n === 1 ? '1권' : n > 1 ? `1~${n}권` : '';
+      const parts = [];
+      if (author) parts.push(`[${author}]`);
+      if (title)  parts.push(title);
+      if (range)  parts.push(range);
+      parts.push('完');
+      return parts.join(' ') + '.epub';
+    }
+
+    function updateMergeFilenamePreview() {
+      const el = document.getElementById('merge-output-filename');
+      if (el) el.value = buildMergeFilename();
+    }
+
+    // ===== 이미지 압축 (Canvas 기반, iOS 호환) =====
+    async function compressImageBlob(blob, quality, maxWidth) {
+      return new Promise(resolve => {
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          let w = img.naturalWidth, h = img.naturalHeight;
+          if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          // PNG 투명도 → 흰 배경 처리 (iOS JPEG 변환 안전)
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
+          canvas.toBlob(
+            outBlob => resolve(outBlob || blob),
+            'image/jpeg',
+            quality / 100
+          );
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); resolve(blob); };
+        img.src = url;
+      });
+    }
+
+    // ===== EPUB 파일 업로드 파싱 =====
+    async function handleEpubMergeUpload(input) {
+      if (!input.files.length) return;
+      // iOS에서 multiple 선택이 한 번에 안 오는 경우 누적 처리
+      const newFiles = Array.from(input.files);
+      // 기존 파일과 합산 (중복 파일명 제외)
+      const existingNames = new Set(mergeTargetFiles.map(f => f.name));
+      const added = newFiles.filter(f => !existingNames.has(f.name));
+      mergeTargetFiles = [...mergeTargetFiles, ...added];
+
+      if (mergeTargetFiles.length === 0) return;
+
+      parsedChaptersList = [];
+      mergeCoverInclude = mergeTargetFiles.map(() => true);
+      bookCoverFileIds  = mergeTargetFiles.map(() => new Set());
+
+      document.getElementById('merge-status').textContent = `${mergeTargetFiles.length}개 파일 선택됨`;
+      document.getElementById('merge-file-list').innerHTML = mergeTargetFiles.map((f, i) =>
+        `<div class="flex items-center justify-between py-0.5">
+          <span class="truncate text-gray-500">📚 ${i+1}. ${f.name}</span>
+          <button onclick="removeFile(${i})" class="shrink-0 ml-2 text-[10px] text-red-400 font-bold px-1.5 py-0.5 rounded active:bg-red-50">✕</button>
+        </div>`
+      ).join('');
+
+      log('파일 분석 중...');
+      let uniqueGlobalId = 0;
+      for (let i = 0; i < mergeTargetFiles.length; i++) {
+        try {
+          const file   = mergeTargetFiles[i];
+          const loaded = await JSZip.loadAsync(file);
+          const allPaths = Object.keys(loaded.files);
+
+          // OPF → cover 파일 탐지
+          const opfPath = allPaths.find(p => p.endsWith('.opf'));
+          if (opfPath) {
+            const opfText = await loaded.file(opfPath).async("text");
+            const opfDoc  = new DOMParser().parseFromString(opfText, "text/xml");
+            const coverMeta = opfDoc.querySelector('meta[name="cover"]');
+            if (coverMeta) {
+              const coverId   = coverMeta.getAttribute('content');
+              const coverItem = opfDoc.querySelector(`item[id="${coverId}"]`);
+              if (coverItem) {
+                const href = coverItem.getAttribute('href');
+                if (href) bookCoverFileIds[i].add(href.split('/').pop());
+              }
+            }
+            for (const item of opfDoc.getElementsByTagName("item")) {
+              const href = item.getAttribute("href") || "";
+              if (/cover/i.test(href)) bookCoverFileIds[i].add(href.split('/').pop());
+            }
+          }
+          allPaths.filter(p => /cover/i.test(p)).forEach(p => bookCoverFileIds[i].add(p.split('/').pop()));
+
+          // NCX 파싱
+          const ncxPath = allPaths.find(p => p.endsWith('.ncx'));
+          if (ncxPath) {
+            const xmlDoc   = new DOMParser().parseFromString(await loaded.file(ncxPath).async("text"), "text/xml");
+            const navPoints = xmlDoc.getElementsByTagName("navPoint");
+            for (let n = 0; n < navPoints.length; n++) {
+              const labelNode   = navPoints[n].getElementsByTagName("text")[0];
+              const contentNode = navPoints[n].getElementsByTagName("content")[0];
+              if (labelNode && contentNode) {
+                const rawTitle = labelNode.textContent.trim();
+                const fullSrc  = contentNode.getAttribute("src");
+                const hashIdx  = fullSrc.indexOf('#');
+                const srcFile  = hashIdx !== -1 ? fullSrc.substring(0, hashIdx) : fullSrc;
+                const anchor   = hashIdx !== -1 ? fullSrc.substring(hashIdx + 1) : "";
+                const cleanSrc = srcFile.includes('/') ? srcFile.split('/').pop() : srcFile;
+                parsedChaptersList.push({
+                  uid: uniqueGlobalId++, bookIdx: i,
+                  bookName: file.name.replace('.epub',''),
+                  title: rawTitle, srcName: cleanSrc, anchor,
+                  zipRef: loaded,
+                  isCover: /cover|표지|제목/i.test(rawTitle) || /cover|title/i.test(cleanSrc)
+                });
+              }
+            }
+          }
+        } catch(e) {
+          log(`⚠️ ${mergeTargetFiles[i].name} 분석 실패: ${e.message}`);
+        }
+      }
+
+      renderMergeEditor();
+
+      // 첫 파일명에서 작가/제목 자동 파싱
+      const firstName   = mergeTargetFiles[0].name.replace(/\.epub$/i, '');
+      const authorMatch = firstName.match(/^\[([^\]]+)\]/);
+      if (authorMatch) {
+        document.getElementById('merge-author').value = authorMatch[1];
+        const t = firstName.replace(/^\[[^\]]+\]\s*/,'').replace(/\s*\d+~?\d*권.*$/,'').replace(/\s*完.*$/,'').trim();
+        if (t) document.getElementById('merge-title').value = t;
+      } else {
+        const t = firstName.replace(/\s*\d+~?\d*권.*$/,'').replace(/\s*完.*$/,'').trim();
+        if (t) document.getElementById('merge-title').value = t;
+      }
+      updateMergeFilenamePreview();
+      log(`${mergeTargetFiles.length}개 파일 매핑 완료`);
+    }
+
+    // 개별 파일 제거
+    function removeFile(idx) {
+      mergeTargetFiles.splice(idx, 1);
+      // 전체 재파싱
+      const input = document.getElementById('merge-input');
+      input.value = '';
+      parsedChaptersList = [];
+      mergeCoverInclude  = mergeTargetFiles.map(() => true);
+      bookCoverFileIds   = mergeTargetFiles.map(() => new Set());
+      if (mergeTargetFiles.length === 0) {
+        document.getElementById('merge-status').textContent = 'EPUB 파일 선택 (여러 개 가능)';
+        document.getElementById('merge-file-list').innerHTML = '';
+        document.getElementById('merge-editor-box').classList.add('hidden');
+        log('파일 제거됨');
+        return;
+      }
+      // 재파싱: 남은 파일 다시 분석
+      const fakeInput = { files: mergeTargetFiles };
+      mergeTargetFiles = [];
+      handleEpubMergeUploadFromFiles(fakeInput.files);
+    }
+
+    async function handleEpubMergeUploadFromFiles(files) {
+      mergeTargetFiles = Array.from(files);
+      parsedChaptersList = [];
+      mergeCoverInclude = mergeTargetFiles.map(() => true);
+      bookCoverFileIds  = mergeTargetFiles.map(() => new Set());
+
+      document.getElementById('merge-status').textContent = `${mergeTargetFiles.length}개 파일 선택됨`;
+      document.getElementById('merge-file-list').innerHTML = mergeTargetFiles.map((f, i) =>
+        `<div class="flex items-center justify-between py-0.5">
+          <span class="truncate text-gray-500">📚 ${i+1}. ${f.name}</span>
+          <button onclick="removeFile(${i})" class="shrink-0 ml-2 text-[10px] text-red-400 font-bold px-1.5 py-0.5 rounded active:bg-red-50">✕</button>
+        </div>`
+      ).join('');
+
+      let uniqueGlobalId = 0;
+      for (let i = 0; i < mergeTargetFiles.length; i++) {
+        try {
+          const file   = mergeTargetFiles[i];
+          const loaded = await JSZip.loadAsync(file);
+          const allPaths = Object.keys(loaded.files);
+          const opfPath = allPaths.find(p => p.endsWith('.opf'));
+          if (opfPath) {
+            const opfText = await loaded.file(opfPath).async("text");
+            const opfDoc  = new DOMParser().parseFromString(opfText, "text/xml");
+            const coverMeta = opfDoc.querySelector('meta[name="cover"]');
+            if (coverMeta) {
+              const coverId = coverMeta.getAttribute('content');
+              const coverItem = opfDoc.querySelector(`item[id="${coverId}"]`);
+              if (coverItem) { const h = coverItem.getAttribute('href'); if (h) bookCoverFileIds[i].add(h.split('/').pop()); }
+            }
+            for (const item of opfDoc.getElementsByTagName("item")) {
+              const href = item.getAttribute("href") || "";
+              if (/cover/i.test(href)) bookCoverFileIds[i].add(href.split('/').pop());
+            }
+          }
+          allPaths.filter(p => /cover/i.test(p)).forEach(p => bookCoverFileIds[i].add(p.split('/').pop()));
+          const ncxPath = allPaths.find(p => p.endsWith('.ncx'));
+          if (ncxPath) {
+            const xmlDoc = new DOMParser().parseFromString(await loaded.file(ncxPath).async("text"), "text/xml");
+            const navPoints = xmlDoc.getElementsByTagName("navPoint");
+            for (let n = 0; n < navPoints.length; n++) {
+              const labelNode = navPoints[n].getElementsByTagName("text")[0];
+              const contentNode = navPoints[n].getElementsByTagName("content")[0];
+              if (labelNode && contentNode) {
+                const rawTitle = labelNode.textContent.trim();
+                const fullSrc = contentNode.getAttribute("src");
+                const hashIdx = fullSrc.indexOf('#');
+                const srcFile = hashIdx !== -1 ? fullSrc.substring(0, hashIdx) : fullSrc;
+                const anchor  = hashIdx !== -1 ? fullSrc.substring(hashIdx + 1) : "";
+                const cleanSrc = srcFile.includes('/') ? srcFile.split('/').pop() : srcFile;
+                parsedChaptersList.push({ uid: uniqueGlobalId++, bookIdx: i, bookName: file.name.replace('.epub',''), title: rawTitle, srcName: cleanSrc, anchor, zipRef: loaded, isCover: /cover|표지|제목/i.test(rawTitle) || /cover|title/i.test(cleanSrc) });
+              }
+            }
+          }
+        } catch(e) { /* skip */ }
+      }
+      renderMergeEditor();
+      updateMergeFilenamePreview();
+      log(`${mergeTargetFiles.length}개 파일 재매핑 완료`);
+    }
+
+    // ===== 편집기 렌더링 =====
+    function renderMergeEditor() {
+      const box = document.getElementById('merge-editor-box');
+      const container = document.getElementById('merge-chapters-list');
+      if (parsedChaptersList.length === 0) { box.classList.add('hidden'); return; }
+      box.classList.remove('hidden');
+      container.innerHTML = "";
+
+      for (let bIdx = 0; bIdx < mergeTargetFiles.length; bIdx++) {
+        const chapters = parsedChaptersList.filter(ch => ch.bookIdx === bIdx);
+        if (chapters.length === 0) continue;
+        const coverOn      = mergeCoverInclude[bIdx] !== false;
+        const hasCoverFiles = bookCoverFileIds[bIdx].size > 0;
+        const coverFileList = hasCoverFiles
+          ? [...bookCoverFileIds[bIdx]].slice(0,3).join(', ') + (bookCoverFileIds[bIdx].size > 3 ? ' 외…' : '')
+          : '';
+
+      container.innerHTML += `
+        <div class="vol-card space-y-2">
+          <div class="flex items-start gap-2.5">
+            <span style="width:20px;height:20px;border-radius:50%;background:var(--ink);color:var(--gold2);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:10px;flex-shrink:0;margin-top:2px;">${bIdx+1}</span>
+            <div class="flex-1 min-w-0 space-y-2">
+              <div class="flex items-center gap-2">
+                <span style="font-size:10px;font-weight:700;color:var(--muted);flex-shrink:0;">[대목차명]</span>
+                <input type="text" id="merge-vol-name-${bIdx}" value="${bIdx+1}권"
+                  style="flex:1;padding:4px 8px;border:1px solid rgba(201,168,76,0.3);border-radius:8px;background:var(--paper);font-size:12px;font-weight:700;color:var(--ink);outline:none;">
+              </div>
+              <div class="flex items-center justify-between" style="background:var(--paper);border:1px solid rgba(27,35,64,0.1);border-radius:10px;padding:8px 12px;">
+                <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;margin-right:8px;">
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <span style="font-size:11px;font-weight:700;color:var(--ink2);">🖼 분권 표지</span>
+                    ${!hasCoverFiles ? `<span style="font-size:10px;color:var(--muted);">(감지 못함)</span>` : ''}
+                  </div>
+                  ${hasCoverFiles ? `<span style="font-size:9px;color:var(--muted);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${coverFileList}</span>` : ''}
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                  <span id="cover-label-${bIdx}" style="font-size:10px;font-weight:700;color:${coverOn?'var(--gold)':'var(--muted)'};">${coverOn?'포함':'제외'}</span>
+                  <button onclick="toggleCoverInclude(${bIdx})" id="cover-toggle-${bIdx}"
+                    style="position:relative;display:inline-flex;align-items:center;width:44px;height:24px;border-radius:999px;transition:background 0.2s;background:${coverOn?'var(--gold)':'#CBD5E1'};outline:none;border:none;cursor:${hasCoverFiles?'pointer':'not-allowed'};opacity:${hasCoverFiles?'1':'0.35'};"
+                    ${!hasCoverFiles ? 'disabled' : ''}>
+                    <span style="display:inline-block;width:16px;height:16px;background:white;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.2);transform:translateX(${coverOn?'24px':'4px'});transition:transform 0.2s;"></span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="padding-left:28px;border-left:2px dashed rgba(201,168,76,0.25);margin-top:4px;space-y-0.5;">
+            ${chapters.map(ch => `
+            <div style="display:flex;align-items:center;font-size:11px;color:var(--ink2);padding:3px 4px;gap:6px;">
+              <span style="color:var(--gold);font-weight:700;flex-shrink:0;">↳</span>
+              <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;">${ch.title}</span>
+            </div>`).join('')}
+          </div>
+        </div>`;
+      }
+    }
+
+    // ===== 표지 토글 =====
+    function toggleCoverInclude(bIdx) {
+      mergeCoverInclude[bIdx] = !mergeCoverInclude[bIdx];
+      const isOn = mergeCoverInclude[bIdx];
+      const btn  = document.getElementById(`cover-toggle-${bIdx}`);
+      const label = document.getElementById(`cover-label-${bIdx}`);
+      if (btn) {
+        btn.style.background = isOn ? 'var(--gold)' : '#CBD5E1';
+        const dot = btn.querySelector('span');
+        if (dot) dot.style.transform = isOn ? 'translateX(24px)' : 'translateX(4px)';
+      }
+      if (label) {
+        label.textContent = isOn ? '포함' : '제외';
+        label.style.color = isOn ? 'var(--gold)' : 'var(--muted)';
+      }
+    }
+
+    function isCoverFilePath(filePath, bIdx) {
+      const basename = filePath.split('/').pop();
+      if (bookCoverFileIds[bIdx] && bookCoverFileIds[bIdx].has(basename)) return true;
+      return /cover/i.test(filePath);
+    }
+
+    // ===== 합치기 실행 =====
+    async function executeEpubMerge() {
+      if (mergeTargetFiles.length < 2) { alert("합칠 EPUB 파일을 2개 이상 선택해 주세요."); return; }
+
+      const doCompress  = currentSizeMode !== 'original';
+      const imgQuality  = parseInt(document.getElementById('img-quality-slider').value);
+      const imgMaxWidth = parseInt(document.getElementById('img-maxw-slider').value);
+      const doMinify    = doCompress && document.getElementById('minify-text').checked;
+
+      const btn = document.getElementById('merge-run-btn');
+      btn.disabled = true;
+      btn.textContent = '⏳ 처리 중...';
+      btn.style.opacity = '0.5';
+
+      try {
+        log("합본 재빌드 시작...");
+        const mZip = new JSZip();
+        mZip.file("mimetype", "application/epub+zip", { compression: "STORE" });
+        mZip.folder("META-INF").file("container.xml",
+          `<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>`);
+        const mOebps = mZip.folder("OEBPS");
+        let manifest = "", spine = "", ncx = "", playOrderIdx = 1;
+        const opt = document.querySelector('input[name="cover-opt"]:checked').value;
+
+        // 메인 표지
+        if (opt === 'custom' && globalCoverBlob) {
+          const ext = (globalCoverType || 'image/jpeg').split('/')[1].replace('jpeg','jpg') || "jpg";
+          const mimeExt = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
+          let coverData = globalCoverBlob;
+          if (doCompress) coverData = await compressImageBlob(globalCoverBlob, imgQuality, imgMaxWidth);
+          mOebps.file(`main_cover.jpg`, coverData);
+          manifest += `<item id="m-cover" href="main_cover.jpg" media-type="image/jpeg"/><item id="m-cover-page" href="main_cover.xhtml" media-type="application/xhtml+xml"/>\n`;
+          spine    += `<itemref idref="m-cover-page" linear="no"/>\n`;
+          mOebps.file("main_cover.xhtml", `<?xml version="1.0" encoding="utf-8"?><!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml"><head><title>표지</title></head><body style="margin:0;text-align:center;"><img src="main_cover.jpg" style="max-width:100%;height:auto;"/></body></html>`);
+        }
+
+        // ── 1단계: 권별 파일 복사 + OPF spine 수집 ──
+        const bookSpineOrders = [];
+        for (let bIdx = 0; bIdx < mergeTargetFiles.length; bIdx++) {
+          log(`[${bIdx+1}/${mergeTargetFiles.length}권] 파일 복사 중...`);
+          const loadedZip    = await JSZip.loadAsync(mergeTargetFiles[bIdx]);
+          const prefix       = `b_${bIdx}`;
+          const includeCover = mergeCoverInclude[bIdx] !== false;
+          const allPaths     = Object.keys(loadedZip.files);
+
+          const opfPath = allPaths.find(p => p.endsWith('.opf'));
+          const opfBase = opfPath && opfPath.includes('/') ? opfPath.substring(0, opfPath.lastIndexOf('/')+1) : '';
+          const idToHref = {};
+          const spineOrder = [];
+
+          if (opfPath) {
+            const opfText = await loadedZip.file(opfPath).async("text");
+            const opfDoc  = new DOMParser().parseFromString(opfText, "text/xml");
+            for (const item of opfDoc.getElementsByTagName("item")) {
+              const id = item.getAttribute("id"), href = item.getAttribute("href");
+              if (id && href) idToHref[id] = opfBase ? opfBase + href : href;
+            }
+            for (const itemref of opfDoc.getElementsByTagName("itemref")) {
+              const idref = itemref.getAttribute("idref");
+              const linear = itemref.getAttribute("linear");
+              const resolvedHref = idToHref[idref];
+              if (resolvedHref) spineOrder.push({ href: resolvedHref, linear });
+            }
+          }
+          bookSpineOrders.push(spineOrder);
+
+          for (const filePath of allPaths) {
+            if (filePath.startsWith('META-INF/') || filePath.endsWith('mimetype') ||
+                filePath.endsWith('.opf') || filePath.endsWith('.ncx')) continue;
+            const fileObj = loadedZip.files[filePath];
+            if (fileObj.dir) continue;
+            if (!includeCover && isCoverFilePath(filePath, bIdx)) continue;
+
+            const isImg  = /\.(jpg|jpeg|png|webp)$/i.test(filePath);
+            const isText = /\.(xhtml|html|css|xml)$/i.test(filePath);
+            let data;
+
+            if (doCompress && isImg) {
+              const rawBlob = await fileObj.async("blob");
+              data = await compressImageBlob(rawBlob, imgQuality, imgMaxWidth);
+            } else if (doMinify && isText) {
+              let txt = await fileObj.async("text");
+              txt = txt.replace(/<!--[\s\S]*?-->/g,'').replace(/\s{2,}/g,' ').replace(/>\s+</g,'><').trim();
+              data = txt;
+            } else {
+              data = await fileObj.async(isText ? "text" : "blob");
+            }
+
+            mOebps.file(`${prefix}/${filePath}`, data);
+            let mediaType = "application/xhtml+xml";
+            if      (/\.css$/i.test(filePath))       mediaType = "text/css";
+            else if (/\.(jpg|jpeg)$/i.test(filePath)) mediaType = "image/jpeg";
+            else if (/\.png$/i.test(filePath))        mediaType = "image/png";
+            else if (/\.gif$/i.test(filePath))        mediaType = "image/gif";
+            else if (/\.webp$/i.test(filePath))       mediaType = "image/webp";
+            else if (/\.svg$/i.test(filePath))        mediaType = "image/svg+xml";
+            manifest += `<item id="${prefix}_${filePath.replace(/[\/\.\s\-]/g,'_')}" href="${prefix}/${filePath}" media-type="${mediaType}"/>\n`;
+          }
+        }
+
+        // ── 2단계: spine ──
+        for (let bIdx = 0; bIdx < mergeTargetFiles.length; bIdx++) {
+          const prefix = `b_${bIdx}`;
+          const includeCover = mergeCoverInclude[bIdx] !== false;
+          const spineAdded = new Set();
+          for (const { href, linear } of bookSpineOrders[bIdx]) {
+            if (!includeCover && isCoverFilePath(href, bIdx)) continue;
+            const spineId = `${prefix}_${href.replace(/[\/\.\s\-]/g,'_')}`;
+            if (spineAdded.has(spineId)) continue;
+            spine += `<itemref idref="${spineId}"${linear==='no'?' linear="no"':''}/>\n`;
+            spineAdded.add(spineId);
+          }
+        }
+
+        // ── 3단계: NCX ──
+        for (let bIdx = 0; bIdx < mergeTargetFiles.length; bIdx++) {
+          const validChapters = parsedChaptersList.filter(ch => ch.bookIdx===bIdx && !(ch.isCover && bIdx>0));
+          if (validChapters.length === 0) continue;
+          const firstCh = validChapters[0];
+          const firstOrigPath = Object.keys(firstCh.zipRef.files).find(p => p.endsWith(firstCh.srcName)) || '';
+          const volSrc  = `b_${bIdx}/${firstOrigPath}${firstCh.anchor?'#'+firstCh.anchor:''}`;
+          const volName = document.getElementById(`merge-vol-name-${bIdx}`)?.value || `${bIdx+1}권`;
+          ncx += `<navPoint id="mg_${bIdx}" playOrder="${playOrderIdx++}"><navLabel><text>${volName}</text></navLabel><content src="${volSrc}"/>`;
+          for (const ch of validChapters) {
+            const origPath = Object.keys(ch.zipRef.files).find(p => p.endsWith(ch.srcName));
+            if (origPath) {
+              ncx += `<navPoint id="np_${ch.uid}" playOrder="${playOrderIdx++}"><navLabel><text>${ch.title}</text></navLabel><content src="b_${ch.bookIdx}/${origPath}${ch.anchor?'#'+ch.anchor:''}"/></navPoint>\n`;
+            }
+          }
+          ncx += `</navPoint>\n`;
+        }
+
+        manifest += `<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>`;
+        const mTitle  = document.getElementById('merge-title').value  || "합본 통합본";
+        const mAuthor = document.getElementById('merge-author').value || "작가";
+        mOebps.file("content.opf", `<?xml version="1.0" encoding="utf-8"?><package xmlns="http://www.idpf.org/2007/opf" version="2.0"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>${mTitle}</dc:title><dc:creator>${mAuthor}</dc:creator><dc:language>ko</dc:language>${opt==='custom'&&globalCoverBlob?'<meta name="cover" content="m-cover"/>':''}</metadata><manifest>${manifest}</manifest><spine toc="ncx">${spine}</spine></package>`);
+        mOebps.file("toc.ncx", `<?xml version="1.0" encoding="utf-8"?><ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1"><docTitle><text>${mTitle}</text></docTitle><navMap>${ncx}</navMap></ncx>`);
+
+        log("최종 압축 생성 중...");
+        const mergeRaw = (document.getElementById('merge-output-filename').value || '').trim();
+        const mergeFilename = mergeRaw ? (mergeRaw.endsWith('.epub') ? mergeRaw : mergeRaw+'.epub') : buildMergeFilename();
+        const blob = await mZip.generateAsync({
+          type: "blob", mimeType: "application/epub+zip",
+          compression: "DEFLATE", compressionOptions: { level: doCompress ? 9 : 6 }
+        });
+
+        triggerDownload(blob, mergeFilename);
+        log(`✅ 완료! ${mergeTargetFiles.length}권 합산 · ${(blob.size/1024/1024).toFixed(1)} MB${isIOS ? ' · 위 창에서 저장하세요' : ''}`);
+
+      } catch(e) {
+        log(`❌ 오류: ${e.message}`);
+        alert(`처리 중 오류가 발생했습니다.\n${e.message}`);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '📖 합권 완료 (.epub)';
+        btn.style.opacity = '1';
+      }
+    }
+  </script>
+</body>
+</html>
