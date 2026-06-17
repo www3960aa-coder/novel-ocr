@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EPUB → TXT 변환기</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root {
+    --bg: #0f0f13;
+    --surface: #1a1a22;
+    --border: #2e2e3e;
+    --accent: #7c6af7;
+    --accent-dim: #4a4080;
+    --text: #e8e6f0;
+    --text-muted: #7a7890;
+    --green: #5cd896;
+    --red: #f07070;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Pretendard', 'Noto Sans KR', system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 16px 60px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+
+  header h1 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, #a89cf7 0%, #7c6af7 60%, #c084fc 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  header p {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-top: 6px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    width: 100%;
+    max-width: 560px;
+    margin-bottom: 16px;
+  }
+
+  .card-title {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+  }
+
+  /* Drop zone */
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    padding: 36px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(124,106,247,0.06);
+  }
+  .drop-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .drop-icon {
+    font-size: 2.2rem;
+    margin-bottom: 10px;
+  }
+  .drop-label {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+  }
+  .drop-label strong {
+    color: var(--accent);
+  }
+
+  /* File list */
+  .file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .file-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.82rem;
+  }
+  .file-item .fname {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .file-item .fsize {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    flex-shrink: 0;
+  }
+  .remove-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0 2px;
+    line-height: 1;
+  }
+  .remove-btn:hover { color: var(--red); }
+
+  /* Options */
+  .option-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .option-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .option-row input[type="radio"],
+  .option-row input[type="checkbox"] {
+    accent-color: var(--accent);
+    margin-top: 2px;
+    flex-shrink: 0;
+    width: 15px;
+    height: 15px;
+  }
+  .option-row label {
+    font-size: 0.87rem;
+    cursor: pointer;
+    line-height: 1.4;
+  }
+  .option-row label span {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 14px 0;
+  }
+
+  /* Convert button */
+  .convert-btn {
+    width: 100%;
+    max-width: 560px;
+    padding: 14px;
+    background: var(--accent);
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    margin-bottom: 16px;
+  }
+  .convert-btn:hover { opacity: 0.9; }
+  .convert-btn:active { transform: scale(0.98); }
+  .convert-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Reset button */
+  .reset-btn {
+    flex-shrink: 0;
+    padding: 14px 18px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s, background 0.2s;
+    white-space: nowrap;
+  }
+  .reset-btn:hover { border-color: var(--red); color: var(--red); background: rgba(240,112,112,0.06); }
+  .reset-btn:active { transform: scale(0.97); }
+
+  /* Progress */
+  .progress-wrap {
+    width: 100%;
+    max-width: 560px;
+    display: none;
+  }
+  .progress-bar-bg {
+    height: 6px;
+    background: var(--border);
+    border-radius: 99px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 99px;
+    width: 0%;
+    transition: width 0.3s;
+  }
+  .progress-label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+  /* Log */
+  .log-wrap {
+    width: 100%;
+    max-width: 560px;
+    display: none;
+    margin-top: 4px;
+  }
+  .log-box {
+    background: #0a0a10;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    font-size: 0.78rem;
+    font-family: 'Consolas', monospace;
+    max-height: 180px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .log-ok { color: var(--green); }
+  .log-warn { color: #f0c070; }
+  .log-err { color: var(--red); }
+  .log-info { color: var(--text-muted); }
+
+  /* Results */
+  .result-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .result-item {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: rgba(92,216,150,0.07);
+    border: 1px solid rgba(92,216,150,0.25);
+    border-radius: 10px;
+    padding: 14px;
+    font-size: 0.83rem;
+  }
+  .result-item-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .result-item .rname {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.85rem;
+    color: var(--text);
+  }
+  .dl-btn {
+    width: 100%;
+    background: var(--green);
+    color: #0a1a10;
+    border: none;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(92,216,150,0.35);
+    letter-spacing: 0.02em;
+  }
+  .dl-btn:hover { opacity: 0.85; }
+  .dl-btn:active { transform: scale(0.98); }
+
+  .dl-all-btn {
+    width: 100%;
+    max-width: 560px;
+    padding: 15px;
+    background: var(--green);
+    border: none;
+    border-radius: 10px;
+    color: #0a1a10;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 10px;
+    display: none;
+    box-shadow: 0 3px 12px rgba(92,216,150,0.35);
+    letter-spacing: 0.02em;
+  }
+  .dl-all-btn:hover { opacity: 0.9; }
+  .dl-all-btn:active { transform: scale(0.98); }
+
+  /* ── 미리보기 ── */
+  .preview-wrap {
+    width: 100%;
+    max-width: 560px;
+    display: none;
+    margin-top: 4px;
+    margin-bottom: 16px;
+  }
+  .preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .preview-header .card-title { margin-bottom: 0; }
+  .chapter-tabs {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+    margin-bottom: 10px;
+  }
+  .chapter-tabs::-webkit-scrollbar { display: none; }
+  .ch-tab {
+    flex-shrink: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .ch-tab.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .preview-viewer {
+    background: #f5f0e8;
+    border-radius: 12px;
+    padding: 28px 28px;
+    max-height: 520px;
+    overflow-y: auto;
+    color: #1a1410;
+    font-family: 'Noto Serif KR', 'Georgia', 'Batang', serif;
+    font-size: 1rem;
+    line-height: 2;
+    letter-spacing: 0.01em;
+    word-break: keep-all;
+    overscroll-behavior: contain;
+  }
+  .preview-viewer .pv-chapter-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: 1.2em;
+    padding-bottom: 0.5em;
+    border-bottom: 1px solid rgba(0,0,0,0.12);
+    color: #2a1f10;
+  }
+  .preview-viewer p { margin: 0; }
+  .preview-viewer p + p { margin-top: 0.9em; }
+  .preview-viewer .pv-blank { height: 0.6em; }
+  .viewer-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .vt-label { font-size: 0.72rem; color: var(--text-muted); flex-shrink: 0; }
+  .vt-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 0.78rem;
+    padding: 3px 10px;
+    cursor: pointer;
+  }
+  .vt-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .vt-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(124,106,247,0.1); }
+  .font-size-ctrl {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+  }
+  .font-size-ctrl button {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    width: 26px; height: 26px;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .font-size-ctrl button:hover { border-color: var(--accent); }
+  .font-size-ctrl span { font-size: 0.75rem; color: var(--text-muted); min-width: 32px; text-align: center; }
+  .preview-empty {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    padding: 40px 0;
+    font-family: system-ui, sans-serif;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>EPUB → TXT 변환기</h1>
+  <p>EPUB 파일에서 텍스트를 추출하여 TXT로 변환합니다</p>
+</header>
+
+<!-- 파일 업로드 -->
+<div class="card">
+  <div class="card-title">📂 EPUB 파일 선택</div>
+  <label class="drop-zone" id="dropZone">
+    <input type="file" id="fileInput" accept=".epub" multiple>
+    <div class="drop-icon">📖</div>
+    <div class="drop-label">
+      <strong>클릭하거나 파일을 여기에 끌어다 놓으세요</strong><br>
+      여러 파일 동시 선택 가능 · .epub
+    </div>
+  </label>
+  <div class="file-list" id="fileList"></div>
+</div>
+
+<!-- 옵션 -->
+<div class="card">
+  <div class="card-title">⚙️ 변환 옵션</div>
+  <div class="option-group">
+
+    <div class="option-row">
+      <input type="radio" name="outMode" id="mSingle" value="single" checked>
+      <label for="mSingle">
+        단일 TXT로 합치기
+        <span>모든 챕터를 하나의 파일로 병합</span>
+      </label>
+    </div>
+    <div class="option-row">
+      <input type="radio" name="outMode" id="mZip" value="zip">
+      <label for="mZip">
+        챕터별 개별 TXT (ZIP)
+        <span>챕터마다 별도 파일로 저장 후 ZIP으로 압축</span>
+      </label>
+    </div>
+    <div class="option-row">
+      <input type="radio" name="outMode" id="mBoth" value="both">
+      <label for="mBoth">
+        두 가지 모두
+        <span>단일 TXT + 챕터별 ZIP 동시 생성</span>
+      </label>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="option-row">
+      <input type="checkbox" id="optBlankLine" checked>
+      <label for="optBlankLine">
+        문단 사이 빈 줄 유지
+        <span>단락 구분을 위한 빈 줄 보존</span>
+      </label>
+    </div>
+    <div class="option-row">
+      <input type="checkbox" id="optSkipEmpty" checked>
+      <label for="optSkipEmpty">
+        빈 챕터 건너뛰기
+        <span>텍스트 없는 챕터(표지 등) 제외</span>
+      </label>
+    </div>
+    <div class="option-row">
+      <input type="checkbox" id="optSpineOrder" checked>
+      <label for="optSpineOrder">
+        OPF spine 순서 따르기
+        <span>EPUB 내부 읽기 순서 기준으로 정렬</span>
+      </label>
+    </div>
+
+  </div>
+</div>
+
+<div style="display:flex; gap:10px; width:100%; max-width:560px; margin-bottom:16px;">
+  <button class="convert-btn" id="convertBtn" disabled style="margin-bottom:0; flex:1;">변환 시작</button>
+  <button class="reset-btn" id="resetBtn">초기화</button>
+</div>
+
+<div class="progress-wrap" id="progressWrap">
+  <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
+  <div class="progress-label" id="progressLabel">처리 중...</div>
+</div>
+
+<div class="log-wrap" id="logWrap">
+  <div class="card-title" style="margin-bottom:8px;padding:0 2px;">🔍 변환 로그</div>
+  <div class="log-box" id="logBox"></div>
+</div>
+
+<!-- 결과 -->
+<div class="card" id="resultCard" style="display:none; margin-top:16px;">
+  <div class="card-title">✅ 변환 완료</div>
+  <div class="result-list" id="resultList"></div>
+</div>
+<button class="dl-all-btn" id="dlAllBtn">📦 전체 다운로드</button>
+
+<!-- 미리보기 -->
+<div class="preview-wrap" id="previewWrap">
+  <div class="preview-header">
+    <div class="card-title">👁 미리보기</div>
+  </div>
+  <div class="viewer-toolbar">
+    <span class="vt-label">배경</span>
+    <button class="vt-btn active" id="bgPaper" onclick="setBg('paper')">종이</button>
+    <button class="vt-btn" id="bgWhite" onclick="setBg('white')">흰색</button>
+    <button class="vt-btn" id="bgDark" onclick="setBg('dark')">다크</button>
+    <div class="font-size-ctrl">
+      <button onclick="changeFontSize(-1)">−</button>
+      <span id="fontSizeLabel">16px</span>
+      <button onclick="changeFontSize(1)">+</button>
+    </div>
+  </div>
+  <div class="chapter-tabs" id="chapterTabs"></div>
+  <div class="preview-viewer" id="previewViewer">
+    <div class="preview-empty">변환 후 여기에 내용이 표시됩니다</div>
+  </div>
+</div>
+
+<script>
+const fileInput = document.getElementById('fileInput');
+const dropZone = document.getElementById('dropZone');
+const fileList = document.getElementById('fileList');
+const convertBtn = document.getElementById('convertBtn');
+const progressWrap = document.getElementById('progressWrap');
+const progressFill = document.getElementById('progressFill');
+const progressLabel = document.getElementById('progressLabel');
+const logWrap = document.getElementById('logWrap');
+const logBox = document.getElementById('logBox');
+const resultCard = document.getElementById('resultCard');
+const resultList = document.getElementById('resultList');
+const dlAllBtn = document.getElementById('dlAllBtn');
+const previewWrap = document.getElementById('previewWrap');
+const chapterTabs = document.getElementById('chapterTabs');
+const previewViewer = document.getElementById('previewViewer');
+const resetBtn = document.getElementById('resetBtn');
+
+let selectedFiles = [];
+let resultFiles = []; // {name, blob}
+let previewChapters = []; // 마지막으로 변환된 챕터 목록 (미리보기용)
+let currentTabIdx = 0;
+let pvFontSize = 16;
+const bgStyles = {
+  paper: { bg: '#f5f0e8', color: '#1a1410' },
+  white: { bg: '#ffffff', color: '#111111' },
+  dark:  { bg: '#1c1a14', color: '#d8d0c0' },
+};
+
+// ── 파일 선택 ──────────────────────────────────────────────
+fileInput.addEventListener('change', () => addFiles([...fileInput.files]));
+
+// ── 초기화 ────────────────────────────────────────────────
+resetBtn.addEventListener('click', () => {
+  if (!confirm('모든 작업을 초기화할까요?\n(선택 파일, 변환 결과, 미리보기가 모두 사라집니다)')) return;
+  resetAll();
+});
+
+function resetAll() {
+  // 파일 목록
+  selectedFiles = [];
+  fileInput.value = '';
+  fileList.innerHTML = '';
+  convertBtn.disabled = true;
+
+  // 결과
+  resultFiles = [];
+  resultCard.style.display = 'none';
+  resultList.innerHTML = '';
+  dlAllBtn.style.display = 'none';
+
+  // 로그 & 프로그레스
+  logWrap.style.display = 'none';
+  logBox.innerHTML = '';
+  progressWrap.style.display = 'none';
+  progressFill.style.width = '0%';
+  progressLabel.textContent = '처리 중...';
+
+  // 미리보기
+  previewChapters = [];
+  previewWrap.style.display = 'none';
+  chapterTabs.innerHTML = '';
+  previewViewer.innerHTML = '<div class="preview-empty">변환 후 여기에 내용이 표시됩니다</div>';
+
+  // 옵션 초기값 복원
+  document.getElementById('mSingle').checked = true;
+  document.getElementById('optBlankLine').checked = true;
+  document.getElementById('optSkipEmpty').checked = true;
+  document.getElementById('optSpineOrder').checked = true;
+}
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  addFiles([...e.dataTransfer.files].filter(f => f.name.endsWith('.epub')));
+});
+
+function addFiles(files) {
+  files.forEach(f => {
+    if (!selectedFiles.find(x => x.name === f.name && x.size === f.size)) selectedFiles.push(f);
+  });
+  renderFileList();
+}
+
+function renderFileList() {
+  fileList.innerHTML = selectedFiles.map((f, i) => `
+    <div class="file-item">
+      <span>📖</span>
+      <span class="fname">${f.name}</span>
+      <span class="fsize">${(f.size/1024/1024).toFixed(1)} MB</span>
+      <button class="remove-btn" onclick="removeFile(${i})">✕</button>
+    </div>`).join('');
+  convertBtn.disabled = selectedFiles.length === 0;
+}
+
+function removeFile(i) {
+  selectedFiles.splice(i, 1);
+  renderFileList();
+}
+
+// ── 로그 ──────────────────────────────────────────────────
+function log(msg, type='info') {
+  const el = document.createElement('div');
+  el.className = `log-${type}`;
+  el.textContent = msg;
+  logBox.appendChild(el);
+  logBox.scrollTop = logBox.scrollHeight;
+}
+
+function setProgress(pct, label) {
+  progressFill.style.width = pct + '%';
+  progressLabel.textContent = label;
+}
+
+// ── HTML → 텍스트 변환 ───────────────────────────────────
+// headingTexts: heading 태그에서 추출된 텍스트 목록도 함께 반환
+function htmlToText(html, keepBlankLines) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+
+  // ruby 태그: rt 제거
+  doc.querySelectorAll('rt, rp').forEach(el => el.remove());
+
+  // heading 태그 텍스트 수집 (중복 제거용)
+  const headingTexts = new Set();
+  doc.querySelectorAll('h1,h2,h3,h4,h5,h6').forEach(h => {
+    const t = h.textContent.trim();
+    if (t) headingTexts.add(t);
+  });
+
+  // 블록 요소 앞에 줄바꿈 삽입
+  const blocks = ['p','div','br','h1','h2','h3','h4','h5','h6','li','tr','blockquote','section','article'];
+  blocks.forEach(tag => {
+    doc.querySelectorAll(tag).forEach(el => {
+      el.prepend(document.createTextNode('\n'));
+      if (tag !== 'br') el.append(document.createTextNode('\n'));
+    });
+  });
+
+  let text = doc.body ? doc.body.innerText || doc.body.textContent : doc.documentElement.textContent;
+
+  // 연속 공백 정리
+  text = text.replace(/[ \t]+/g, ' ');
+  // 줄 앞뒤 공백 제거
+  text = text.split('\n').map(l => l.trim()).join('\n');
+
+  if (keepBlankLines) {
+    // 3개 이상 연속 빈 줄 → 2개
+    text = text.replace(/\n{3,}/g, '\n\n');
+  } else {
+    text = text.replace(/\n{2,}/g, '\n');
+  }
+
+  return { text: text.trim(), headingTexts };
+}
+
+// ── 제목 중복 제거 ────────────────────────────────────────
+// chTitle: NCX/nav에서 가져온 제목
+// text: 본문 텍스트
+// headingTexts: HTML heading 태그에서 추출한 텍스트 Set
+// → 본문 앞부분에서 제목과 동일/유사한 줄을 제거
+function deduplicateTitle(chTitle, text, headingTexts) {
+  if (!chTitle) return text;
+
+  const normalize = s => s.replace(/[\s\u3000\.\!\?・…·\-_\[\]【】「」『』〈〉《》#＃]/g, '').toLowerCase();
+  const normTitle = normalize(chTitle);
+
+  const lines = text.split('\n');
+  const result = [];
+  let removedCount = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const normLine = normalize(line);
+
+    // 앞쪽 10줄 이내에서만 제거 시도 (너무 뒤까지 건드리지 않도록)
+    if (removedCount < 3 && i < 10 && normLine.length > 0) {
+      // 1) heading 태그에서 온 텍스트와 일치
+      let isHeading = false;
+      for (const ht of headingTexts) {
+        if (normalize(ht) === normLine) { isHeading = true; break; }
+      }
+
+      // 2) NCX/nav 제목과 일치 또는 포함 관계
+      const isTitleMatch =
+        normLine === normTitle ||
+        (normTitle.length > 2 && normLine.includes(normTitle)) ||
+        (normLine.length > 2 && normTitle.includes(normLine));
+
+      if (isHeading || isTitleMatch) {
+        removedCount++;
+        continue; // 이 줄 건너뜀
+      }
+    }
+
+    result.push(line);
+  }
+
+  // 앞쪽 빈 줄 정리
+  return result.join('\n').replace(/^\n+/, '');
+}
+
+// ── EPUB 파싱 ─────────────────────────────────────────────
+async function parseEpub(file) {
+  const zip = await JSZip.loadAsync(file);
+
+  // container.xml → OPF 경로
+  const containerXml = await zip.file('META-INF/container.xml').async('string');
+  const containerDoc = new DOMParser().parseFromString(containerXml, 'text/xml');
+  const opfPath = containerDoc.querySelector('rootfile').getAttribute('full-path');
+  const opfDir = opfPath.includes('/') ? opfPath.substring(0, opfPath.lastIndexOf('/') + 1) : '';
+
+  // OPF 파싱
+  const opfXml = await zip.file(opfPath).async('string');
+  const opfDoc = new DOMParser().parseFromString(opfXml, 'text/xml');
+
+  // 메타데이터
+  const titleEl = opfDoc.querySelector('title');
+  const title = titleEl ? titleEl.textContent.trim() : file.name.replace('.epub','');
+
+  // manifest: id → href 매핑
+  const manifest = {};
+  opfDoc.querySelectorAll('manifest item').forEach(item => {
+    manifest[item.getAttribute('id')] = {
+      href: item.getAttribute('href'),
+      mediaType: item.getAttribute('media-type')
+    };
+  });
+
+  // spine: 읽기 순서
+  const useSpine = document.getElementById('optSpineOrder').checked;
+  let spineItems = [];
+  if (useSpine) {
+    opfDoc.querySelectorAll('spine itemref').forEach(ref => {
+      const id = ref.getAttribute('idref');
+      if (manifest[id]) spineItems.push(manifest[id].href);
+    });
+  } else {
+    // html 파일만 순서대로
+    Object.values(manifest).forEach(m => {
+      if (m.mediaType && (m.mediaType.includes('html') || m.mediaType.includes('xhtml'))) {
+        spineItems.push(m.href);
+      }
+    });
+  }
+
+  // NCX / nav 에서 챕터 제목 추출
+  const titleMap = {}; // href → title
+
+  // nav.xhtml (EPUB3)
+  const navId = [...opfDoc.querySelectorAll('manifest item')].find(el =>
+    el.getAttribute('properties') && el.getAttribute('properties').includes('nav')
+  );
+  if (navId) {
+    try {
+      const navHref = navId.getAttribute('href');
+      const navPath = opfDir + navHref;
+      const navXml = await zip.file(navPath).async('string');
+      const navDoc = new DOMParser().parseFromString(navXml, 'text/html');
+      navDoc.querySelectorAll('nav[epub\\:type="toc"] a, nav a').forEach(a => {
+        let href = a.getAttribute('href') || '';
+        href = href.split('#')[0];
+        const text = a.textContent.trim();
+        if (href && text) titleMap[href] = text;
+      });
+    } catch(e) {}
+  }
+
+  // NCX (EPUB2)
+  const ncxId = [...opfDoc.querySelectorAll('manifest item')].find(el =>
+    el.getAttribute('media-type') === 'application/x-dtbncx+xml'
+  );
+  if (ncxId) {
+    try {
+      const ncxHref = ncxId.getAttribute('href');
+      const ncxPath = opfDir + ncxHref;
+      const ncxXml = await zip.file(ncxPath).async('string');
+      const ncxDoc = new DOMParser().parseFromString(ncxXml, 'text/xml');
+      ncxDoc.querySelectorAll('navPoint').forEach(np => {
+        const src = np.querySelector('content')?.getAttribute('src') || '';
+        const href = src.split('#')[0];
+        const label = np.querySelector('navLabel text')?.textContent?.trim() || '';
+        if (href && label && !titleMap[href]) titleMap[href] = label;
+      });
+    } catch(e) {}
+  }
+
+  // 각 spine item을 텍스트로 변환
+  const keepBlank = document.getElementById('optBlankLine').checked;
+  const skipEmpty = document.getElementById('optSkipEmpty').checked;
+
+  const chapters = [];
+  for (const href of spineItems) {
+    const fullPath = opfDir + href;
+    const hrefBase = href.split('#')[0];
+    const chTitle = titleMap[hrefBase] || titleMap[href] || '';
+
+    let fileObj = zip.file(fullPath);
+    if (!fileObj) fileObj = zip.file(decodeURIComponent(fullPath));
+    if (!fileObj) {
+      log(`  파일 없음: ${fullPath}`, 'warn');
+      continue;
+    }
+
+    const html = await fileObj.async('string');
+    const { text: rawText, headingTexts } = htmlToText(html, keepBlank);
+
+    if (skipEmpty && rawText.replace(/\s/g,'').length < 5) continue;
+
+    // 본문에서 제목 중복 제거
+    const text = deduplicateTitle(chTitle, rawText, headingTexts);
+
+    chapters.push({ href, title: chTitle, text });
+  }
+
+  return { title, chapters };
+}
+
+// ── 변환 실행 ─────────────────────────────────────────────
+convertBtn.addEventListener('click', async () => {
+  if (selectedFiles.length === 0) return;
+
+  convertBtn.disabled = true;
+  resultCard.style.display = 'none';
+  resultList.innerHTML = '';
+  dlAllBtn.style.display = 'none';
+  logBox.innerHTML = '';
+  logWrap.style.display = 'block';
+  progressWrap.style.display = 'block';
+  resultFiles = [];
+
+  const outMode = document.querySelector('input[name="outMode"]:checked').value;
+
+  for (let fi = 0; fi < selectedFiles.length; fi++) {
+    const file = selectedFiles[fi];
+    log(`▶ ${file.name} 처리 시작`, 'info');
+    setProgress(Math.round((fi / selectedFiles.length) * 100), `${fi+1}/${selectedFiles.length}: ${file.name}`);
+
+    try {
+      const { title, chapters } = await parseEpub(file);
+      log(`  제목: ${title} · 챕터 ${chapters.length}개`, 'ok');
+
+      // 마지막 파일의 챕터를 미리보기에 저장
+      previewChapters = chapters;
+
+      const baseName = title || file.name.replace('.epub','');
+
+      if (outMode === 'single' || outMode === 'both') {
+        const txt = chaptersToSingle(chapters);
+        const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+        const fname = `${baseName}.txt`;
+        resultFiles.push({ name: fname, blob });
+        log(`  단일 TXT 생성: ${fname}`, 'ok');
+      }
+
+      if (outMode === 'zip' || outMode === 'both') {
+        const z = new JSZip();
+        chapters.forEach((ch, idx) => {
+          const num = String(idx+1).padStart(3,'0');
+          const safeTitle = ch.title ? ch.title.replace(/[\\/:*?"<>|]/g,'_') : `chapter_${num}`;
+          const fname = `${num}_${safeTitle}.txt`;
+          const content = ch.title ? `# ${ch.title}\n\n${ch.text}` : ch.text;
+          z.file(fname, content);
+        });
+        const zipBlob = await z.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+        const zname = `${baseName}_챕터별.zip`;
+        resultFiles.push({ name: zname, blob: zipBlob });
+        log(`  챕터별 ZIP 생성: ${zname}`, 'ok');
+      }
+
+    } catch(err) {
+      log(`  오류: ${err.message}`, 'err');
+    }
+  }
+
+  setProgress(100, '완료!');
+  renderResults();
+  renderPreview();
+  convertBtn.disabled = false;
+});
+
+function chaptersToSingle(chapters) {
+  return chapters.map(ch => {
+    const heading = ch.title ? `# ${ch.title}` : '';
+    return heading ? `${heading}\n\n${ch.text}` : ch.text;
+  }).join('\n\n\n');
+}
+
+function renderResults() {
+  if (resultFiles.length === 0) { resultCard.style.display = 'none'; return; }
+  resultCard.style.display = 'block';
+  resultList.innerHTML = resultFiles.map((r, i) => `
+    <div class="result-item">
+      <div class="result-item-top">
+        <span>${r.name.endsWith('.zip') ? '📦' : '📄'}</span>
+        <span class="rname">${r.name}</span>
+      </div>
+      <button class="dl-btn" onclick="downloadFile(${i})">⬇ 저장하기</button>
+    </div>`).join('');
+
+  if (resultFiles.length > 1) dlAllBtn.style.display = 'block';
+  dlAllBtn.onclick = downloadAll;
+}
+
+function downloadFile(i) {
+  const { name, blob } = resultFiles[i];
+  triggerDownload(blob, name);
+}
+
+async function downloadAll() {
+  if (resultFiles.length === 1) { downloadFile(0); return; }
+  // ZIP으로 묶어서
+  const z = new JSZip();
+  resultFiles.forEach(r => z.file(r.name, r.blob));
+  const blob = await z.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+  triggerDownload(blob, 'epub_to_txt_결과물.zip');
+}
+
+function triggerDownload(blob, filename) {
+  // iOS Safari용 Web Share API 시도
+  if (navigator.share && /iP(ad|hone|od)/.test(navigator.userAgent)) {
+    const file = new File([blob], filename, { type: blob.type });
+    navigator.share({ files: [file], title: filename })
+      .catch(() => anchorDownload(blob, filename));
+  } else {
+    anchorDownload(blob, filename);
+  }
+}
+
+function anchorDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+}
+
+// ── 미리보기 ───────────────────────────────────────────────
+let currentBg = 'paper';
+
+function renderPreview() {
+  if (previewChapters.length === 0) return;
+  previewWrap.style.display = 'block';
+
+  // 탭 생성
+  chapterTabs.innerHTML = previewChapters.map((ch, i) => {
+    const label = ch.title || `챕터 ${i+1}`;
+    const short = label.length > 14 ? label.slice(0, 13) + '…' : label;
+    return `<button class="ch-tab${i === 0 ? ' active' : ''}" onclick="selectTab(${i})">${short}</button>`;
+  }).join('');
+
+  currentTabIdx = 0;
+  renderChapter(0);
+
+  // 미리보기 창으로 스크롤
+  setTimeout(() => previewWrap.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+}
+
+function selectTab(idx) {
+  currentTabIdx = idx;
+  chapterTabs.querySelectorAll('.ch-tab').forEach((t, i) => {
+    t.classList.toggle('active', i === idx);
+  });
+  renderChapter(idx);
+}
+
+function renderChapter(idx) {
+  const ch = previewChapters[idx];
+  if (!ch) return;
+
+  const lines = ch.text.split('\n');
+  let html = '';
+
+  if (ch.title) {
+    html += `<div class="pv-chapter-title">${escHtml(ch.title)}</div>`;
+  }
+
+  lines.forEach(line => {
+    if (line.trim() === '') {
+      html += `<div class="pv-blank"></div>`;
+    } else {
+      html += `<p>${escHtml(line)}</p>`;
+    }
+  });
+
+  previewViewer.innerHTML = html;
+  previewViewer.scrollTop = 0;
+  applyBg();
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function applyBg() {
+  const s = bgStyles[currentBg];
+  previewViewer.style.background = s.bg;
+  previewViewer.style.color = s.color;
+}
+
+function setBg(mode) {
+  currentBg = mode;
+  document.querySelectorAll('.vt-btn[id^="bg"]').forEach(b => b.classList.remove('active'));
+  document.getElementById('bg' + mode.charAt(0).toUpperCase() + mode.slice(1)).classList.add('active');
+  applyBg();
+}
+
+function changeFontSize(delta) {
+  pvFontSize = Math.max(12, Math.min(24, pvFontSize + delta));
+  previewViewer.style.fontSize = pvFontSize + 'px';
+  document.getElementById('fontSizeLabel').textContent = pvFontSize + 'px';
+}
+</script>
+</body>
+</html>
