@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>화수 수정 도우미 💜</title>
+    <style>
+        :root {
+            --bg: #f7f2ff;
+            --card-bg: #ffffff;
+            --main-lavender: #b9a7ff;
+            --dark-purple: #8f7cff;
+            --secondary-lavender: #e8ddff;
+            --success: #7ddfc3;
+            --success-dark: #3fa889;
+            --success-bg: #f0fdf9;
+            --warning: #ffc98b;
+            --warning-dark: #c27e2b;
+            --warning-bg: #fffbeb;
+            --text-main: #3b3543;
+            --text-muted: #7e7488;
+            --border: #ebdfff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            padding: 24px 14px 60px;
+            display: flex;
+            justify-content: center;
+            line-height: 1.6;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 480px;
+        }
+
+        .app-header {
+            text-align: center;
+            margin-bottom: 25px;
+            padding-top: 10px;
+        }
+
+        .app-title {
+            font-size: 1.8rem;
+            color: var(--text-main);
+            font-weight: 800;
+            margin-bottom: 6px;
+            letter-spacing: -0.5px;
+        }
+
+        .app-subtitle {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .tab-bar {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 20px;
+            background: #fff;
+            padding: 6px;
+            border-radius: 16px;
+            box-shadow: 0 4px 14px rgba(143, 124, 255, 0.08);
+            border: 1px solid var(--border);
+        }
+
+        .tab-btn {
+            flex: 1;
+            background: none;
+            border: none;
+            padding: 12px 2px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background: var(--main-lavender);
+            color: #fff;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 24px;
+            box-shadow: 0 8px 24px rgba(143, 124, 255, 0.06);
+            margin-bottom: 20px;
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        .btn-main {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 16px;
+            border-radius: 16px;
+            font-size: 1.05rem;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.02);
+            margin-bottom: 12px;
+        }
+
+        .btn-load {
+            background: #fff;
+            color: var(--text-main);
+            border: 2px dashed var(--main-lavender);
+        }
+        .btn-load:active { background: #fdfbff; }
+
+        .btn-analyze {
+            background: var(--main-lavender);
+            color: #fff;
+        }
+        .btn-analyze:active { background: var(--dark-purple); }
+
+        .btn-apply-all {
+            background: var(--dark-purple);
+            color: #fff;
+        }
+
+        .btn-save {
+            background: var(--text-main);
+            color: #fff;
+        }
+
+        .status-dashboard {
+            margin-top: 18px;
+            border-top: 1px dashed var(--border);
+            padding-top: 18px;
+        }
+
+        .file-badge {
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: var(--dark-purple);
+            background: var(--secondary-lavender);
+            padding: 8px 14px;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 14px;
+            word-break: break-all;
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .stat-item {
+            background: #faf8ff;
+            border: 1px solid var(--border);
+            padding: 14px;
+            border-radius: 16px;
+            text-align: center;
+        }
+
+        .stat-lbl {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .stat-val {
+            font-size: 1.2rem;
+            font-weight: 800;
+        }
+
+        .scroll-container {
+            max-height: 52vh;
+            overflow-y: auto;
+            padding-right: 2px;
+            margin-top: 10px;
+        }
+
+        .item-card {
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 14px;
+            border: 1px solid var(--border);
+            background: #fff;
+            transition: all 0.2s;
+        }
+
+        .item-card.type-warning {
+            border-left: 5px solid var(--warning);
+            background: var(--warning-bg);
+        }
+
+        .item-card.type-success {
+            border-left: 5px solid var(--success);
+            background: var(--success-bg);
+        }
+
+        .card-top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .status-indicator {
+            font-weight: 800;
+            font-size: 0.9rem;
+        }
+
+        .line-badge-info {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            background: rgba(0, 0, 0, 0.04);
+            padding: 3px 8px;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        .content-box {
+            margin-bottom: 12px;
+        }
+
+        .lbl-title {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .lbl-val {
+            font-size: 1.05rem;
+            font-weight: 700;
+            word-break: break-all;
+        }
+
+        .flow-container {
+            text-align: center;
+            padding: 8px 0;
+        }
+
+        .flow-old {
+            font-size: 1rem;
+            color: var(--text-muted);
+            text-decoration: line-through;
+        }
+
+        .flow-arrow {
+            display: block;
+            margin: 4px 0;
+            color: var(--main-lavender);
+            font-weight: 700;
+        }
+
+        .flow-new {
+            font-size: 1.2rem;
+            color: var(--success-dark);
+            font-weight: 800;
+        }
+
+        .card-btn-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 14px;
+        }
+
+        .btn-utility {
+            background: #ffffff;
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            padding: 10px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.82rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-utility:active { background: #faf8ff; }
+
+        .btn-action-execute {
+            grid-column: span 2;
+            background: var(--main-lavender);
+            color: #fff;
+            border: none;
+            padding: 12px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            margin-top: 2px;
+            transition: all 0.2s;
+        }
+        .btn-action-execute:active { background: var(--dark-purple); }
+
+        .btn-action-save {
+            background: #ffffff;
+            color: var(--dark-purple);
+            border: 1.5px solid var(--main-lavender);
+            padding: 10px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            margin-top: 8px;
+            width: 100%;
+        }
+        .btn-action-save:active { background: var(--secondary-lavender); }
+
+        .note-text {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 8px;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .rule-list-title {
+            font-size: 0.95rem;
+            font-weight: 800;
+            margin: 5px 0 12px;
+            color: var(--dark-purple);
+        }
+
+        .rule-item-node {
+            padding: 16px;
+            background: #faf8ff;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            margin-bottom: 12px;
+        }
+
+        .rule-node-found {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: var(--text-main);
+            margin-bottom: 4px;
+        }
+
+        .rule-node-rec {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: var(--dark-purple);
+            margin-bottom: 6px;
+        }
+
+        .rule-node-count {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .btn-rule-del {
+            background: #fee2e2;
+            color: #ef4444;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+
+    <div class="app-header">
+        <div class="app-title">💜 화수 수정 도우미</div>
+        <div class="app-subtitle">웹소설 TXT 목차 자동 수정 도구</div>
+    </div>
+
+    <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchView('analysis')">📋 분석 및 수정</button>
+        <button class="tab-btn" onclick="switchView('rules')">⚙️ 패턴 목록 (고급)</button>
+    </div>
+
+    <div id="panel-analysis" class="tab-panel active card">
+        <input type="file" id="filePicker" accept=".txt" style="display: none;" onchange="handleFileSelect(this)">
+        
+        <button class="btn-main btn-load" onclick="document.getElementById('filePicker').click()">
+            📂 TXT 불러오기
+        </button>
+        
+        <button class="btn-main btn-apply-all" onclick="applyBulkTransform()" id="btnApplyAll" style="display:none;">
+            ✨ 일괄 변환 적용
+        </button>
+        
+        <button class="btn-main btn-save" onclick="exportModifiedTxt()" id="btnSaveTxt" style="display:none;">
+            💾 수정 TXT 저장
+        </button>
+
+        <div id="dashboardArea" class="status-dashboard" style="display: none;">
+            <div class="file-badge" id="lblFileName">-</div>
+            <div class="stats-row">
+                <div class="stat-item">
+                    <div class="stat-lbl">전체 원고 줄 수</div>
+                    <div class="stat-val" id="statTotalLines">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-lbl">수정 필요 화수</div>
+                    <div class="stat-val" style="color: var(--warning-dark);" id="statTargetCount">0</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="reportContainer" class="scroll-container">
+            <div style="text-align: center; color: var(--text-muted); padding: 40px 0; font-size: 0.9rem;">
+                TXT 원고 파일을 불러오면 자동으로 분석을 시작합니다.
+            </div>
+        </div>
+    </div>
+
+    <div id="panel-rules" class="tab-panel card">
+        <div class="rule-list-title">발견된 새 형식 (원고 내 자동 탐지)</div>
+        <div id="discoveredListContainer" style="margin-bottom: 20px;">
+            <div style="text-align: center; color: var(--text-muted); padding: 20px 0; font-size: 0.85rem;">발견된 새로운 형태가 없습니다.</div>
+        </div>
+
+        <div class="rule-list-title" style="border-top: 1px dashed var(--border); padding-top: 15px;">저장된 변환 규칙</div>
+        <div id="savedRulesContainer">
+            <div style="text-align: center; color: var(--text-muted); padding: 20px 0; font-size: 0.85rem;">저장된 사용자 규칙이 없습니다.</div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    let globalLinesArray = [];
+    let currentFileName = "";
+    let targetsMap = []; // 메인 탭에 띄워줄 변경 대상 리스트
+    
+    // 패턴 그룹화 데이터 저장소
+    let discoveredGroups = {}; 
+    let customRules = [];
+
+    window.onload = function() {
+        const saved = localStorage.getItem('helper_user_rules_v4');
+        if (saved) customRules = JSON.parse(saved);
+        renderRulesLayout();
+    };
+
+    function switchView(viewId) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        event.target.classList.add('active');
+        document.getElementById('panel-' + viewId).classList.add('active');
+    }
+
+    function handleFileSelect(inputElement) {
+        const file = inputElement.files[0];
+        if (!file) return;
+
+        currentFileName = file.name;
+        document.getElementById('lblFileName').textContent = file.name + " (분석 중...)";
+        document.getElementById('dashboardArea').style.display = 'block';
+        
+        document.getElementById('btnApplyAll').style.display = 'none';
+        document.getElementById('btnSaveTxt').style.display = 'none';
+        document.getElementById('reportContainer').innerHTML = `<div style="text-align: center; padding: 40px 0; color: var(--main-lavender); font-weight: bold;">원고를 스마트하게 훑어보는 중입니다... ⏳</div>`;
+
+        setTimeout(() => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const buffer = e.target.result;
+                    const bytes = new Uint8Array(buffer);
+                    let text = "";
+
+                    if (bytes.length >= 3 && bytes[0] === 239 && bytes[1] === 187 && bytes[2] === 191) {
+                        text = new TextDecoder("utf-8").decode(buffer.slice(3));
+                    } else {
+                        try {
+                            text = new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+                        } catch {
+                            text = new TextDecoder("euc-kr").decode(buffer);
+                        }
+                    }
+                    
+                    globalLinesArray = text.split(/\r?\n/);
+                    document.getElementById('lblFileName').textContent = file.name;
+                    document.getElementById('statTotalLines').textContent = globalLinesArray.length.toLocaleString();
+                    
+                    executeInspection();
+                } catch (err) {
+                    alert("파일을 읽는 중 오류가 발생했습니다.");
+                } finally {
+                    inputElement.value = "";
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }, 50);
+    }
+
+    // 예시 문자열 기반 정규식 역연산 엔진
+    function parsePlainExampleToRegex(findStr, replaceStr) {
+        function escapeReg(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+        let numMatch = findStr.match(/\d+/);
+        if (!numMatch) {
+            return {
+                pattern: '^\\s*' + escapeReg(findStr).replace(/\s+/g, '\\s*') + '\\s*$',
+                replace: replaceStr
+            };
+        }
+        let firstNum = numMatch[0];
+        let escapedFind = escapeReg(findStr).replace(firstNum, '(\\d+)').replace(/\s+/g, '\\s*');
+        return { 
+            pattern: '^\\s*' + escapedFind + '\\s*$', 
+            replace: replaceStr.replace(/\d+/, '$1') 
+        };
+    }
+
+    // 서명 추출 (그룹화용) - <외전 1> -> <외전 N>
+    function getSignature(str) {
+        return str.replace(/\d+/g, 'N');
+    }
+
+    // 본문 문장 절대 보호 필터
+    function isStrictBodyProseText(line) {
+        const trimmed = line.trim();
+        if (!trimmed) return true;
+        // 1. 긴 문장 (25자 이상) 제외
+        if (trimmed.length > 25) return true;
+        // 2. 종결 부호 포함 문장 제외
+        if (/[\.,\?!\+]/.test(trimmed)) return true;
+        // 3. 대화 대사 및 인용 기호 포함 제외
+        if (/['"“”‘’]/.test(trimmed)) return true;
+        return false;
+    }
+
+    // 완벽한 포맷 검사 (이 포맷이면 변경할 필요가 전혀 없음)
+    function isPerfectFormat(txt) {
+        return /^\d+화$|^제\s*\d+\s*화$|^(외전|번외|특별외전)\s*\d+화$|^(프롤로그|에필로그)$/i.test(txt);
+    }
+
+    // 지능형 자동 추천 로직 (미인식 외전, 기호 화수를 파악)
+    function smartRecommend(txt) {
+        let inner = txt.replace(/^[\[<(〈《]\s*(.*?)\s*[\]>)〉》]$/, '$1');
+        
+        // 꺾쇠가 벗겨진 상태이거나 원래 없던 상태에서 확인
+        if (/^\d+$/.test(inner)) return `${inner}화`;
+        
+        let sideMatch = inner.match(/^(외전|번외|특별외전|side\s*story)\s*(\d+)\s*(화)?$/i);
+        if (sideMatch) {
+            let kw = sideMatch[1];
+            if (/Side\s*Story/i.test(kw)) kw = "외전";
+            return `${kw} ${sideMatch[2]}화`;
+        }
+
+        let partMatch = inner.match(/^제\s*(\d+)\s*부$/);
+        if (partMatch) return `제${partMatch[1]}부`;
+
+        if (/^(프롤로그|에필로그|prologue|epilogue)$/i.test(inner)) return inner;
+
+        // <외전> 단독
+        if (/^(외전|번외|특별외전)$/.test(inner)) return inner + " 1화";
+
+        return null;
+    }
+
+    function executeInspection() {
+        targetsMap = [];
+        discoveredGroups = {};
+
+        for (let i = 0; i < globalLinesArray.length; i++) {
+            const rawLine = globalLinesArray[i];
+            const trimmed = rawLine.trim();
+            if (!trimmed) continue;
+
+            // 본문 문장은 화수 판단에서 무조건 제외
+            if (isStrictBodyProseText(trimmed)) continue;
+            
+            // 이미 읏쇼에서 완벽하게 인식하는 형태면 건너뜀
+            if (isPerfectFormat(trimmed)) continue;
+
+            let isMatched = false;
+            let targetRecommendation = "";
+            let matchType = ""; // 'custom' or 'discovered'
+
+            // 1. 등록된 규칙(Custom Rules) 검사
+            for (let rule of customRules) {
+                try {
+                    let rx = new RegExp(rule.pattern, 'i');
+                    if (rx.test(trimmed)) {
+                        targetRecommendation = trimmed.replace(rx, rule.replace);
+                        isMatched = true;
+                        matchType = 'custom';
+                        break;
+                    }
+                } catch(e) {}
+            }
+
+            // 2. 미등록 패턴 자동 발견 로직 (Discovery)
+            if (!isMatched) {
+                let rec = smartRecommend(trimmed);
+                if (rec) {
+                    targetRecommendation = rec;
+                    isMatched = true;
+                    matchType = 'discovered';
+
+                    // 발견된 그룹 정리 (패턴 관리용)
+                    let sig = getSignature(trimmed);
+                    if (!discoveredGroups[sig]) {
+                        discoveredGroups[sig] = {
+                            originalEx: trimmed,
+                            recommendEx: rec,
+                            count: 1
+                        };
+                    } else {
+                        discoveredGroups[sig].count++;
+                    }
+                }
+            }
+
+            // 변경 사항이 감지되면 화면 표시 맵에 추가
+            if (isMatched && targetRecommendation && targetRecommendation !== trimmed) {
+                targetsMap.push({
+                    lineIdx: i,
+                    original: trimmed,
+                    recommendation: targetRecommendation,
+                    status: 'pending'
+                });
+            }
+        }
+
+        document.getElementById('statTargetCount').textContent = targetsMap.length.toLocaleString();
+        
+        if (targetsMap.length > 0) {
+            document.getElementById('btnApplyAll').style.display = 'flex';
+            document.getElementById('btnSaveTxt').style.display = 'flex';
+        }
+
+        renderReportList();
+        renderRulesLayout();
+    }
+
+    function renderReportList() {
+        const container = document.getElementById('reportContainer');
+        if (targetsMap.length === 0) {
+            container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 40px 0; font-size: 0.9rem;">✅ 수정이 필요한 화수가 없습니다. 바로 읏쇼에 넣으셔도 좋습니다!</div>`;
+            return;
+        }
+
+        let html = "";
+        let visibleCount = 0;
+
+        for (let idx = 0; idx < targetsMap.length; idx++) {
+            const item = targetsMap[idx];
+            
+            if (item.status === 'pending') {
+                visibleCount++;
+                html += `
+                <div class="item-card type-warning" id="card-node-${idx}">
+                    <div class="card-top-bar">
+                        <span class="status-indicator" style="color: var(--warning-dark);">⚠️ 수정 필요</span>
+                        <span class="line-badge-info">${item.lineIdx + 1}줄</span>
+                    </div>
+                    <div class="content-box">
+                        <div class="lbl-title">발견:</div>
+                        <div class="lbl-val">${escapeHtml(item.original)}</div>
+                    </div>
+                    <div class="content-box">
+                        <div class="lbl-title">추천 변경:</div>
+                        <div class="lbl-val" style="color: var(--dark-purple);">${escapeHtml(item.recommendation)}</div>
+                    </div>
+                    <div class="card-btn-grid">
+                        <button class="btn-utility" onclick="copyValueText('${escapeJs(item.original)}')">📋 변경 전 복사</button>
+                        <button class="btn-utility" onclick="copyValueText('${escapeJs(item.recommendation)}')">📋 변경 후 복사</button>
+                        <button class="btn-action-execute" onclick="applyIndividualTransform(${idx})">✨ 바로 변환</button>
+                    </div>
+                </div>`;
+            } else {
+                visibleCount++;
+                html += `
+                <div class="item-card type-success">
+                    <div class="card-top-bar">
+                        <span class="status-indicator" style="color: var(--success-dark);">✅ 수정 완료</span>
+                        <span class="line-badge-info">${item.lineIdx + 1}줄</span>
+                    </div>
+                    <div class="flow-container">
+                        <div class="flow-old">${escapeHtml(item.original)}</div>
+                        <span class="flow-arrow">↓</span>
+                        <div class="flow-new">${escapeHtml(item.recommendation)}</div>
+                    </div>
+                    <div class="note-text">읏쇼 인식 가능 형태</div>
+                </div>`;
+            }
+
+            if (visibleCount >= 300) {
+                html += `<div style="text-align:center; font-size:0.8rem; padding:16px; color:var(--text-muted);">원활한 표시를 위해 300개 항목만 노출합니다. [✨ 일괄 변환 적용] 시 전체에 적용됩니다.</div>`;
+                break;
+            }
+        }
+
+        container.innerHTML = html;
+    }
+
+    function renderRulesLayout() {
+        const discContainer = document.getElementById('discoveredListContainer');
+        const savedContainer = document.getElementById('savedRulesContainer');
+        
+        // 1. 발견된 새 형식 목록 렌더링
+        let discHtml = "";
+        let discKeys = Object.keys(discoveredGroups);
+        if (discKeys.length > 0) {
+            discKeys.forEach(key => {
+                let group = discoveredGroups[key];
+                discHtml += `
+                <div class="rule-item-node">
+                    <div class="rule-node-found">발견: ${escapeHtml(group.originalEx)}</div>
+                    <div class="rule-node-rec">추천: ${escapeHtml(group.recommendEx)}</div>
+                    <div class="rule-node-count">원고 내 동일 패턴 발견 빈도: ${group.count}건</div>
+                    <button class="btn-action-save" onclick="saveDiscoveredRule('${escapeJs(group.originalEx)}', '${escapeJs(group.recommendEx)}')">
+                        💾 이 규칙 저장
+                    </button>
+                </div>`;
+            });
+        } else {
+            discHtml = `<div style="text-align: center; color: var(--text-muted); padding: 20px 0; font-size: 0.85rem;">새롭게 발견된 미인식 패턴이 없습니다.</div>`;
+        }
+        discContainer.innerHTML = discHtml;
+
+        // 2. 저장된 규칙 목록 렌더링
+        let savedHtml = "";
+        if (customRules.length > 0) {
+            customRules.forEach((r, idx) => {
+                savedHtml += `
+                <div class="rule-item-node" style="padding:14px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:2px;">적용 형태</div>
+                            <div style="font-weight:700; color:var(--text-main); font-size:0.9rem;">
+                                ${escapeHtml(r.findEx)} ➔ <span style="color:var(--main-lavender);">${escapeHtml(r.replaceEx)}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn-rule-del" onclick="deleteUserRule(${idx})">규칙 삭제</button>
+                </div>`;
+            });
+        } else {
+            savedHtml = `<div style="text-align: center; color: var(--text-muted); padding: 20px 0; font-size: 0.85rem;">저장된 규칙이 없습니다.</div>`;
+        }
+        savedContainer.innerHTML = savedHtml;
+    }
+
+    function saveDiscoveredRule(findEx, replaceEx) {
+        const resRule = parsePlainExampleToRegex(findEx, replaceEx);
+        
+        // 중복 체크
+        let isExist = customRules.some(r => r.pattern === resRule.pattern);
+        if (!isExist) {
+            customRules.push({
+                findEx: findEx,
+                replaceEx: replaceEx,
+                pattern: resRule.pattern,
+                replace: resRule.replace
+            });
+            localStorage.setItem('helper_user_rules_v4', JSON.stringify(customRules));
+            
+            alert("✨ 규칙이 성공적으로 저장되었습니다!\n이후 분석 시 우선적으로 자동 변환됩니다.");
+            executeInspection(); // 다시 분석하여 뷰 갱신
+        } else {
+            alert("이미 저장된 규칙과 동일한 패턴입니다.");
+        }
+    }
+
+    function deleteUserRule(idx) {
+        if (!confirm("저장된 이 변환 규칙을 삭제하시겠습니까?")) return;
+        customRules.splice(idx, 1);
+        localStorage.setItem('helper_user_rules_v4', JSON.stringify(customRules));
+        executeInspection();
+    }
+
+    function applyIndividualTransform(targetIdx) {
+        const item = targetsMap[targetIdx];
+        item.status = 'applied';
+        globalLinesArray[item.lineIdx] = item.recommendation;
+        renderReportList();
+    }
+
+    function applyBulkTransform() {
+        if (targetsMap.length === 0) return;
+        let changeCounter = 0;
+        for (let item of targetsMap) {
+            if (item.status === 'pending') {
+                item.status = 'applied';
+                globalLinesArray[item.lineIdx] = item.recommendation;
+                changeCounter++;
+            }
+        }
+        renderReportList();
+        alert(`원고 본문 훼손 없이, 목차 대상 총 ${changeCounter}건이 교정 완료되었습니다.`);
+    }
+
+    function exportModifiedTxt() {
+        if (globalLinesArray.length === 0) return;
+        const outText = globalLinesArray.join("\r\n");
+        const blob = new Blob([outText], { type: "text/plain;charset=utf-8" });
+        const outName = currentFileName ? currentFileName.replace(".txt", "_수정완료.txt") : "수정완료.txt";
+
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = outName;
+        link.click();
+        URL.revokeObjectURL(link.href);
+    }
+
+    function copyValueText(val) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(val).then(() => {
+                alert(`클립보드 복사 완료:\n${val}`);
+            }).catch(() => { fallbackCopyExec(val); });
+        } else {
+            fallbackCopyExec(val);
+        }
+    }
+
+    function fallbackCopyExec(val) {
+        let t = document.createElement("textarea");
+        t.value = val;
+        t.style.position = "fixed";
+        document.body.appendChild(t);
+        t.focus(); t.select();
+        try {
+            document.execCommand('copy');
+            alert(`클립보드 복사 완료:\n${val}`);
+        } catch (e) {
+            alert("기기 접근 제한으로 복사에 실패했습니다.");
+        }
+        document.body.removeChild(t);
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+    
+    function escapeJs(str) {
+        if (!str) return '';
+        return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
+    }
+</script>
+
+</body>
+</html>
