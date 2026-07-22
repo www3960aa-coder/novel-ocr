@@ -1,0 +1,1837 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<title>EPUB 문단정리 & 표지변환 v3.0 + 정리기</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  /* 기본 설정 및 테마 색상 */
+  :root {
+    --primary: #7c3aed;
+    --primary-light: #c4b5fd;
+    --primary-bg: #f3f0ff;
+    --bg-color: #f5f3ff;
+    --card-bg: #ffffff;
+    --text-main: #222222;
+    --text-sub: #868e96;
+    --border-color: #ece9f7;
+    --success: #059669;
+    --success-bg: #ecfdf5;
+  }
+  
+  * { box-sizing: border-box; }
+  
+  body {
+    margin: 0; 
+    padding: 0;
+    font-family: -apple-system, "Malgun Gothic", sans-serif;
+    background: linear-gradient(180deg, var(--bg-color) 0%, #ffffff 300px);
+    color: var(--text-main);
+    display: flex;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* 탑바 (모바일용) */
+  .topbar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 56px;
+    background: var(--card-bg);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    z-index: 40;
+    box-shadow: 0 2px 10px rgba(120,100,220,0.06);
+  }
+  
+  .menu-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: var(--primary);
+    cursor: pointer;
+    padding: 8px;
+    margin-right: 12px;
+  }
+  
+  .topbar-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--primary);
+  }
+
+  /* 사이드 메뉴 (Drawer) */
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 280px;
+    background: var(--card-bg);
+    box-shadow: 4px 0 15px rgba(0,0,0,0.05);
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .sidebar-header {
+    background: linear-gradient(135deg, #a78bfa, #7c3aed);
+    color: #fff;
+    padding: 24px 20px;
+    position: relative;
+  }
+
+  .sidebar-header h2 {
+    margin: 0 0 4px 0;
+    font-size: 22px;
+  }
+
+  .sidebar-header p {
+    margin: 0;
+    font-size: 12px;
+    opacity: 0.8;
+  }
+
+  .close-btn {
+    position: absolute;
+    top: 16px; right: 16px;
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: #fff;
+    font-size: 20px;
+    display: flex;
+    align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+
+  .nav-menu {
+    list-style: none;
+    padding: 16px 12px;
+    margin: 0;
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .nav-item {
+    padding: 14px 16px;
+    border-radius: 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #555;
+    transition: all 0.2s;
+  }
+
+  .nav-item:hover {
+    background: #faf9ff;
+  }
+
+  .nav-item.active {
+    background: var(--primary-bg);
+    color: var(--primary);
+    border-left: 4px solid var(--primary);
+  }
+
+  /* 사이드바 배경 오버레이 */
+  .backdrop {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 45;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s;
+  }
+
+  .backdrop.show {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  /* 메인 컨텐츠 영역 */
+  .main-content {
+    flex: 1;
+    padding: 80px 16px 80px; /* 탑바 높이 + 여백 */
+    max-width: 980px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  /* 뷰어(탭) 전환 */
+  .view-section {
+    display: none;
+    animation: fadeIn 0.3s ease;
+  }
+
+  .view-section.active {
+    display: block;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* 공통 컴포넌트 스타일 */
+  h1 { font-size: 20px; margin: 0 0 6px; display: flex; align-items: center; gap: 6px; }
+  .sub { color: var(--text-sub); font-size: 13px; margin-bottom: 20px; line-height: 1.5; }
+  
+  .card {
+    background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px;
+    padding: 18px; margin-bottom: 14px;
+    box-shadow: 0 2px 10px rgba(120,100,220,0.06);
+  }
+
+  .dropzone {
+    border: 2px dashed var(--primary-light); border-radius: 14px;
+    padding: 28px 16px; text-align: center; color: var(--primary);
+    font-weight: 600; cursor: pointer; transition: 0.15s; background: #faf9ff;
+  }
+  .dropzone.drag { background: var(--primary-bg); border-color: var(--primary); }
+  input[type=file] { display: none; }
+
+  button.btn-primary {
+    width: 100%; padding: 16px; border: none; border-radius: 999px;
+    background: linear-gradient(135deg, #a78bfa, #7c3aed);
+    color: #fff; font-size: 16px; font-weight: 700; cursor: pointer;
+    box-shadow: 0 4px 14px rgba(124,58,237,0.35);
+    transition: transform 0.1s, opacity 0.2s;
+  }
+  button.btn-primary:active { transform: scale(0.98); }
+  button.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  button.btn-secondary {
+    background: #fff; border: 1px solid var(--primary-light); color: var(--primary);
+    padding: 12px; border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  button.btn-secondary:hover { background: var(--primary-bg); }
+  button.btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .input-field, select {
+    width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px;
+    font-size: 14px; box-sizing: border-box; background: #fff; color: var(--text-main);
+  }
+
+  .badge {
+    display: inline-block; font-size: 11px; background: var(--primary-bg); color: var(--primary);
+    padding: 2px 8px; border-radius: 999px; margin-left: 6px; font-weight: 700;
+  }
+
+  /* 툴 1: 문단간격 정리기 전용 스타일 */
+  #filelist { margin-top: 12px; font-size: 13px; color: #444; }
+  #filelist div { padding: 6px 0; border-bottom: 1px solid #f1eefc; }
+  #log {
+    margin-top: 14px; font-size: 12.5px; color: #555;
+    max-height: 220px; overflow-y: auto; white-space: pre-wrap;
+    background: #faf9ff; border-radius: 10px; padding: 10px 12px;
+    display: none; border: 1px solid var(--border-color);
+  }
+  .dl {
+    display: block; text-align: center; margin-top: 12px;
+    background: var(--success-bg); border: 1px solid #a7f3d0; border-radius: 12px;
+    padding: 14px; color: var(--success); font-weight: 700; text-decoration: none;
+  }
+  .img-opts { display:none; margin-top:10px; padding:12px; background:#faf9ff; border-radius:12px; border:1px solid var(--border-color); }
+  .img-opts.show { display:block; }
+  .img-row { display:flex; gap:8px; align-items:center; margin-bottom:8px; flex-wrap:wrap; }
+  .img-row label { margin:0; font-size:13px; color:#555; font-weight:600; min-width:70px; }
+  .img-row select, .img-row input[type=number] { flex:1; min-width:0; }
+  .img-row input[type=range] { flex:1; min-width:80px; }
+  .quality-val { font-size:13px; color:var(--primary); font-weight:700; min-width:30px; }
+  .preset-btns { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+  .preset-btn { padding:5px 12px; border:1px solid var(--primary-light); border-radius:20px; background:#fff; color:var(--primary); font-size:12px; font-weight:700; cursor:pointer; }
+  .preset-btn:hover { background:var(--primary-bg); }
+
+  /* 툴 2: 이미지 용량 줄이기 전용 스타일 */
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+  .grid label { display: block; font-size: 13px; color: #555; margin-bottom: 6px; font-weight: 700; }
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .btn-row button { flex: 1 1 180px; }
+  
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+  .stat { background: #faf9ff; border: 1px solid var(--border-color); border-radius: 14px; padding: 12px; font-size: 13px; color: #666; }
+  .stat b { display: block; font-size: 16px; margin-top: 4px; color: var(--primary); }
+  
+  .list { display: grid; gap: 12px; }
+  .item { display: grid; grid-template-columns: 92px 1fr; gap: 12px; padding: 12px; background: #fff; border: 1px solid var(--border-color); border-radius: 16px; align-items: center; }
+  .item img { width: 92px; height: 120px; object-fit: cover; border-radius: 12px; border: 1px solid #eee; background: #faf9ff; }
+  .meta { display: grid; gap: 6px; font-size: 14px; }
+  .meta small { color: #888; }
+  .pill { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; background: #f1f5f9; border: 1px solid #cbd5e1; color: #475569; margin-right: 6px; }
+  .save { color: var(--success); font-weight: 700; }
+  .warn { color: #f59e0b; font-weight: 700; }
+
+  /* 아코디언 형태 UI 적용 공통 스타일 (EPUB 정리기 & 폼 공통 사용) */
+  .opt-group { border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 10px; background: #fff; overflow: hidden; transition: all 0.2s; }
+  .opt-header { display: flex; align-items: center; padding: 12px 14px; cursor: pointer; background: #faf9ff; }
+  .opt-header input[type="checkbox"] { margin: 0 10px 0 0; width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer; }
+  .opt-title { flex: 1; font-size: 14.5px; font-weight: 600; color: var(--text-main); cursor: pointer; user-select: none; }
+  .desc-btn { background: #fff; border: 1px solid var(--primary-light); color: var(--primary); padding: 5px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; transition: 0.2s; white-space: nowrap; }
+  .desc-btn:hover { background: var(--primary-bg); }
+  .opt-desc { padding: 16px 14px; font-size: 13.5px; color: #555; background: #fff; border-top: 1px solid var(--border-color); display: none; line-height: 1.6; }
+  .opt-desc.open { display: block; animation: fadeIn 0.2s ease; }
+  
+  @media (max-width: 560px) {
+    .item { grid-template-columns: 1fr; }
+    .item img { width: 100%; height: auto; max-height: 240px; }
+  }
+  
+  /* PC 화면용 사이드바 고정 */
+  @media (min-width: 1024px) {
+    .sidebar { transform: translateX(0); }
+    .topbar { display: none; }
+    .backdrop { display: none !important; }
+    .main-content { padding-top: 24px; padding-left: 300px; } /* 사이드바 너비만큼 여백 */
+    .close-btn { display: none; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- 모바일 탑바 -->
+  <div class="topbar">
+    <button class="menu-btn" onclick="toggleSidebar()">≡</button>
+    <div class="topbar-title">EPUB 문단정리 & 표지변환</div>
+  </div>
+
+  <!-- 오버레이 배경 -->
+  <div class="backdrop" id="backdrop" onclick="toggleSidebar()"></div>
+
+  <!-- 사이드 메뉴 -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <button class="close-btn" onclick="toggleSidebar()">«</button>
+      <h2>EPUB 툴킷 통합</h2>
+      <p>v3.0 통합 버전</p>
+    </div>
+    
+    <ul class="nav-menu">
+      <li class="nav-item active" onclick="switchView('epub-formatter', this)">
+        <span>📑</span> 이펍 문단간격 정리기
+      </li>
+      <li class="nav-item" onclick="switchView('img-compressor', this)">
+        <span>🖼️</span> 표지 / 삽화
+      </li>
+      <li class="nav-item" onclick="switchView('epub-cleaner', this)">
+        <span>📦</span> EPUB 정리 (자동)
+      </li>
+    </ul>
+  </nav>
+
+  <!-- 메인 컨텐츠 영역 -->
+  <main class="main-content">
+
+    <!-- ==========================================
+         [뷰 1] 기존 이펍 문단간격 정리기
+         ========================================== -->
+    <section id="epub-formatter" class="view-section active">
+      <h1>📖 이펍 문단간격 정리기 <span class="badge">v3.0</span></h1>
+      <div class="sub">기존 EPUB을 열어서 문단 간격/들여쓰기/표지 호환을 자동으로 맞춰줘요 (5앱 호환 표준) · 저장 파일명은 소설 제목으로 자동 지정</div>
+
+      <div class="card">
+        <div class="dropzone" id="formatterDrop">📂 EPUB 파일을 여기에 놓거나 탭해서 선택</div>
+        <input type="file" id="formatterFileInput" accept=".epub" multiple/>
+        <div id="filelist"></div>
+      </div>
+
+      <!-- 아코디언 스타일 옵션 패널 시작 -->
+      <div class="card" style="background: transparent; border: none; padding: 0; box-shadow: none;">
+        
+        <div style="font-weight:700; margin-bottom:10px; color:var(--primary); font-size:16px;">📖 문단 정리</div>
+        
+        <div class="opt-group">
+          <div class="opt-header">
+            <input type="checkbox" id="fixEmptyP"/>
+            <label for="fixEmptyP" class="opt-title">빈 문단 보정</label>
+            <button type="button" class="desc-btn" onclick="toggleDesc(this)">설명 펼치기 ▼</button>
+          </div>
+          <div class="opt-desc">
+            <b>설명:</b><br/>일부 앱에서 빈 줄이 사라지는 문제 수정
+          </div>
+        </div>
+
+        <div class="opt-group">
+          <div class="opt-header">
+            <input type="checkbox" id="insertSpacer"/>
+            <label for="insertSpacer" class="opt-title">문단 간격 보정</label>
+            <button type="button" class="desc-btn" onclick="toggleDesc(this)">설명 펼치기 ▼</button>
+          </div>
+          <div class="opt-desc">
+            <b>설명:</b><br/>붙어있는 문단 사이에 자동으로 간격 추가
+          </div>
+        </div>
+
+        <div class="opt-group">
+          <div class="opt-header">
+            <input type="checkbox" id="removeIndent"/>
+            <label for="removeIndent" class="opt-title">들여쓰기 해제</label>
+            <button type="button" class="desc-btn" onclick="toggleDesc(this)">설명 펼치기 ▼</button>
+          </div>
+          <div class="opt-desc">
+            <b>설명:</b><br/>첫 줄 들여쓰기를 제거해서 깔끔하게 표시
+          </div>
+        </div>
+
+        <div style="font-weight:700; margin:24px 0 10px; color:var(--primary); font-size:16px;">🖼 표지 처리</div>
+
+        <div class="opt-group">
+          <div class="opt-header">
+            <input type="checkbox" id="fixCover"/>
+            <label for="fixCover" class="opt-title">표지 리디 호환 변환</label>
+            <button type="button" class="desc-btn" onclick="toggleDesc(this)">설명 펼치기 ▼</button>
+          </div>
+          <div class="opt-desc">
+            <b>설명:</b><br/>옛날 방식 표지를 호환 방식으로 변환
+          </div>
+        </div>
+
+        <div class="opt-group">
+          <div class="opt-header">
+            <input type="checkbox" id="removeNavSpine"/>
+            <label for="removeNavSpine" class="opt-title">목차 페이지 제외</label>
+            <button type="button" class="desc-btn" onclick="toggleDesc(this)">설명 펼치기 ▼</button>
+          </div>
+          <div class="opt-desc">
+            <b>설명:</b><br/>일부 앱에서 목차가 첫 페이지처럼 표시되는 문제 방지
+          </div>
+        </div>
+
+        <div style="font-weight:700; margin:24px 0 10px; color:var(--primary); font-size:16px;">📦 이미지 처리</div>
+
+        <div class="opt-group">
+          <div class="opt-header">
+            <input type="checkbox" id="compressImages" onchange="handleCompressCheck(this)"/>
+            <label for="compressImages" class="opt-title">이미지 압축 (용량 줄이기)</label>
+            <button type="button" class="desc-btn" onclick="toggleDesc(this)">설명 펼치기 ▼</button>
+          </div>
+          <div class="opt-desc">
+            <b>설명:</b><br/>JPG / PNG / WebP 이미지 압축<br/>품질과 포맷 설정 가능
+            
+            <div class="img-opts" id="imgOpts">
+              <div class="preset-btns">
+                <button type="button" class="preset-btn" onclick="setImgPreset('cover')">표지용 추천</button>
+                <button type="button" class="preset-btn" onclick="setImgPreset('illust')">삽화용 추천</button>
+                <button type="button" class="preset-btn" onclick="setImgPreset('ultra')">초경량</button>
+              </div>
+              <div class="img-row">
+                <label>출력 포맷</label>
+                <select id="imgFormat" class="input-field" style="padding:6px 8px;">
+                  <option value="image/jpeg">JPEG (표지 추천)</option>
+                  <option value="image/webp">WebP (삽화 추천, 용량 최소)</option>
+                  <option value="image/png">PNG (손실 없음)</option>
+                </select>
+              </div>
+              <div class="img-row">
+                <label>품질</label>
+                <input type="range" id="imgQuality" min="0.4" max="1" value="0.82" step="0.01" oninput="document.getElementById('imgQualityVal').textContent=Number(this.value).toFixed(2)"/>
+                <span class="quality-val" id="imgQualityVal">0.82</span>
+              </div>
+              <div class="img-row">
+                <label>최대 크기(px)</label>
+                <input type="number" id="imgMaxDim" class="input-field" style="padding:6px 8px;" min="400" max="4000" value="1600"/>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <!-- 아코디언 스타일 옵션 패널 끝 -->
+
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:8px;color:#5b21b6;">✏️ 제목/작가명 덮어쓰기 (선택)</div>
+        <div style="font-size:12px;color:#999;margin-bottom:10px;">파일 하나 선택하면 현재 저장된 제목/작가명이 자동으로 채워져요. 여기서 지우거나 고쳐서 저장하면 그 내용으로 덮어써지고, 완전히 비워두면 원래 있던 정보가 그대로 유지돼요. (여러 파일 한번에 선택 시엔 자동으로 안 채워짐)</div>
+        <input type="text" id="titleOverride" class="input-field" style="margin-bottom:8px;" placeholder="제목 (예: 추락한 곳은 낙원)"/>
+        <input type="text" id="authorOverride" class="input-field" placeholder="작가명 (예: 원더드림)"/>
+      </div>
+
+      <button id="formatterRunBtn" class="btn-primary" disabled>EPUB 정리 시작 💜</button>
+      <div id="log"></div>
+      <div id="downloadArea"></div>
+    </section>
+
+    <!-- ==========================================
+         [뷰 2] 이미지 압축기 (표지 / 용량 최적화)
+         ========================================== -->
+    <section id="img-compressor" class="view-section">
+      <h1>🖼️ 표지 / 삽화</h1>
+      <div class="sub">
+        기기 내부에서 바로 압축을 진행하는 로컬 HTML 툴입니다.<br/>
+        표지나 삽화 파일을 미리 줄여두고 EPUB에 넣으면 전체 용량을 크게 줄일 수 있습니다.
+      </div>
+
+      <div class="card">
+        <div class="dropzone" id="compressorDropzone" onclick="document.getElementById('compressorFileInput').click()">
+          <div style="margin-bottom:8px;"><b>📂 이미지 파일 열기</b></div>
+          <div style="font-size:13px; color:#777;">클릭하여 이미지 선택 (JPG, PNG, WebP, GIF)</div>
+          <input id="compressorFileInput" type="file" accept="image/jpeg, image/png, image/webp, image/gif" multiple />
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="grid">
+          <div>
+            <label for="cFormat">출력 포맷</label>
+            <select id="cFormat" class="input-field">
+              <option value="image/webp">WebP (가장 추천)</option>
+              <option value="image/jpeg">JPEG</option>
+              <option value="image/png">PNG (손실 적음, 용량 큼)</option>
+            </select>
+          </div>
+          <div>
+            <label for="cQuality">품질 (<span id="cQualityText" style="color:var(--primary)">0.78</span>)</label>
+            <input id="cQuality" type="range" style="width:100%; margin-top:6px;" min="0.4" max="1" value="0.78" step="0.01" />
+          </div>
+          <div>
+            <label for="cMaxWidth">최대 가로폭(px)</label>
+            <input id="cMaxWidth" class="input-field" type="number" min="320" max="4000" value="1400" />
+          </div>
+          <div>
+            <label for="cCoverMode">빠른 프리셋</label>
+            <select id="cCoverMode" class="input-field">
+              <option value="custom">직접 설정</option>
+              <option value="cover">표지용 추천 (1600px / 0.82)</option>
+              <option value="illustration">삽화용 추천 (1200px / 0.72)</option>
+              <option value="ultra">초경량 (1000px / 0.62)</option>
+            </select>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn-primary" id="cProcessBtn" style="flex: 2;">압축 시작</button>
+          <button class="btn-secondary" id="cDownloadAllBtn">결과 전체 다운로드</button>
+          <button class="btn-secondary" id="cClearBtn">목록 비우기</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="stats">
+          <div class="stat">원본 합계<b id="cTotalOriginal">0 MB</b></div>
+          <div class="stat">압축 합계<b id="cTotalCompressed">0 MB</b></div>
+          <div class="stat">절감량<b id="cSavedAmount">0 MB</b></div>
+          <div class="stat">절감률<b id="cSavedRate">0%</b></div>
+        </div>
+      </div>
+
+      <div class="card" style="background: transparent; border: none; padding: 0; box-shadow: none;">
+        <div class="list" id="cResults"></div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         [뷰 3] EPUB 자동 정리 (새로운 기능)
+         ========================================== -->
+    <section id="epub-cleaner" class="view-section">
+      <h1>📦 EPUB 정리 <span class="badge">v2.0</span></h1>
+      <div class="sub">합권기로 생성한 EPUB이나 불필요한 요소가 포함된 EPUB을 자동으로 분석하여 정리합니다. 초보자도 안전하게 정리할 수 있습니다.</div>
+
+      <div class="card">
+        <div class="dropzone" id="cleanerDrop">📂 정리할 EPUB 파일을 여기에 놓거나 탭해서 선택</div>
+        <input type="file" id="cleanerFileInput" accept=".epub"/>
+      </div>
+
+      <div class="card" style="background: transparent; border: none; padding: 0; box-shadow: none; margin-bottom: 20px;">
+        
+        <div class="opt-group">
+          <div class="opt-header">
+            <input type="checkbox" id="chkDivider"/>
+            <label for="chkDivider" class="opt-title">합권 구분 페이지 지우기</label>
+            <button type="button" class="desc-btn" onclick="toggleDesc(this)">설명 펼치기 ▼</button>
+          </div>
+          <div class="opt-desc">
+            <b>설명:</b><br/>합권기에서 만든 ──1권── / ──2권── / ──외전── 같은 불필요한 구분 페이지를 삭제합니다.
+          </div>
+        </div>
+
+        <div class="opt-group">
+          <div class="opt-header">
+            <input type="checkbox" id="chkEmpty"/>
+            <label for="chkEmpty" class="opt-title">빈 페이지 지우기</label>
+            <button type="button" class="desc-btn" onclick="toggleDesc(this)">설명 펼치기 ▼</button>
+          </div>
+          <div class="opt-desc">
+            <b>설명:</b><br/>글자나 그림 등의 내용이 전혀 없는 불필요한 빈 페이지를 찾아 삭제합니다.
+          </div>
+        </div>
+
+        <div class="opt-group">
+          <div class="opt-header">
+            <input type="checkbox" id="chkToc"/>
+            <label for="chkToc" class="opt-title">책 안쪽 목차 지우기</label>
+            <button type="button" class="desc-btn" onclick="toggleDesc(this)">설명 펼치기 ▼</button>
+          </div>
+          <div class="opt-desc">
+            <b>설명:</b><br/>본문 앞에 포함되어 있는 텍스트 기반의 목차 페이지를 삭제합니다. (앱에서 제공하는 기본 목차 기능은 유지됩니다)
+          </div>
+        </div>
+
+        <div class="opt-group">
+          <div class="opt-header">
+            <input type="checkbox" id="chkDupCover"/>
+            <label for="chkDupCover" class="opt-title">표지 중복 지우기</label>
+            <button type="button" class="desc-btn" onclick="toggleDesc(this)">설명 펼치기 ▼</button>
+          </div>
+          <div class="opt-desc">
+            <b>설명:</b><br/>같은 표지 이미지가 여러 개 들어있거나 첫 장이 표지로 중복 노출되는 경우 겹치는 요소를 제거합니다.
+          </div>
+        </div>
+
+        <div class="opt-group">
+          <div class="opt-header">
+            <input type="checkbox" id="chkUnusedImg"/>
+            <label for="chkUnusedImg" class="opt-title">안 쓰는 이미지 지우기</label>
+            <button type="button" class="desc-btn" onclick="toggleDesc(this)">설명 펼치기 ▼</button>
+          </div>
+          <div class="opt-desc">
+            <b>설명:</b><br/>책 본문에서 사용되지 않고 파일 용량만 차지하고 있는 불필요한 남은 이미지들을 삭제합니다.
+          </div>
+        </div>
+
+        <div class="opt-group">
+          <div class="opt-header">
+            <input type="checkbox" id="chkUnusedXhtml"/>
+            <label for="chkUnusedXhtml" class="opt-title">안 쓰는 페이지 지우기</label>
+            <button type="button" class="desc-btn" onclick="toggleDesc(this)">설명 펼치기 ▼</button>
+          </div>
+          <div class="opt-desc">
+            <b>설명:</b><br/>책 목차나 본문에서 연결되지 않는 잉여 페이지를 찾아 안전하게 삭제합니다.
+          </div>
+        </div>
+
+        <div class="opt-group">
+          <div class="opt-header">
+            <input type="checkbox" id="chkNickname" onchange="handleNicknameCheck(this)"/>
+            <label for="chkNickname" class="opt-title">사용자 닉네임 표시 삭제</label>
+            <button type="button" class="desc-btn" onclick="toggleDesc(this)">설명 펼치기 ▼</button>
+          </div>
+          <div class="opt-desc">
+            <b>설명:</b><br/>소제목이나 챕터 제목 뒤에 붙은 사용자 지정 닉네임 표시를 삭제합니다.<br/>
+            (입력한 특정 패턴 문구만 삭제되며 모든 @ 문자를 일괄 삭제하지 않습니다.)
+            <input type="text" id="nicknameInput" class="input-field" placeholder="삭제할 문구 입력 (예: @AN)" style="margin-top: 10px;"/>
+          </div>
+        </div>
+
+      </div>
+
+      <button id="cleanerPreviewBtn" class="btn-secondary" style="width:100%; margin-bottom: 14px; border: 2px solid var(--primary-light);" disabled>🔍 삭제 전 미리보기 (필수)</button>
+      
+      <div id="cleanerSummary" style="display:none; background:#fff; border:1px solid var(--primary-light); border-radius:12px; padding:16px; margin-bottom:14px; font-size:14px; line-height:1.6; color:#444;">
+         <!-- Preview content injected here -->
+      </div>
+
+      <button id="cleanerRunBtn" class="btn-primary" style="display:none; margin-bottom: 14px;" disabled>EPUB 정리 실행 📦</button>
+      
+      <div id="cleanerLog" style="margin-top:14px;font-size:12.5px;color:#555;max-height:220px;overflow-y:auto;white-space:pre-wrap;background:#faf9ff;border-radius:10px;padding:10px 12px;display:none;border:1px solid var(--border-color);"></div>
+      <div id="cleanerDownload"></div>
+    </section>
+
+  </main>
+
+<script>
+/* ==========================================
+   공통: UI 제어 (사이드바 및 메뉴 탭 전환)
+   ========================================== */
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const backdrop = document.getElementById('backdrop');
+  sidebar.classList.toggle('open');
+  backdrop.classList.toggle('show');
+}
+
+function switchView(viewId, element) {
+  // 모든 뷰 숨기기
+  document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+  // 클릭한 뷰 보이기
+  document.getElementById(viewId).classList.add('active');
+  
+  // 메뉴 활성화 스타일 변경
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  element.classList.add('active');
+
+  // 모바일인 경우 메뉴 클릭 후 사이드바 닫기
+  if (window.innerWidth < 1024) {
+    toggleSidebar();
+  }
+}
+
+// 아코디언 설명 토글
+function toggleDesc(btn) {
+  const desc = btn.parentElement.nextElementSibling;
+  if (desc.classList.contains('open')) {
+    desc.classList.remove('open');
+    btn.textContent = '설명 펼치기 ▼';
+  } else {
+    desc.classList.add('open');
+    btn.textContent = '설명 접기 ▲';
+  }
+}
+
+function handleNicknameCheck(cb) {
+  const desc = cb.parentElement.nextElementSibling;
+  const btn = cb.parentElement.querySelector('.desc-btn');
+  if(cb.checked && !desc.classList.contains('open')) {
+    desc.classList.add('open');
+    btn.textContent = '설명 접기 ▲';
+  }
+}
+
+function handleCompressCheck(cb) {
+  const desc = cb.parentElement.nextElementSibling;
+  const btn = cb.parentElement.querySelector('.desc-btn');
+  const imgOpts = document.getElementById('imgOpts');
+  if(cb.checked) {
+    if(!desc.classList.contains('open')) {
+      desc.classList.add('open');
+      btn.textContent = '설명 접기 ▲';
+    }
+    imgOpts.classList.add('show');
+  } else {
+    imgOpts.classList.remove('show');
+  }
+}
+
+
+/* ==========================================
+   기능 1: 이펍 문단간격 정리기 로직
+   ========================================== */
+(function() {
+  const drop = document.getElementById('formatterDrop');
+  const fileInput = document.getElementById('formatterFileInput');
+  const filelistEl = document.getElementById('filelist');
+  const runBtn = document.getElementById('formatterRunBtn');
+  const logEl = document.getElementById('log');
+  const downloadArea = document.getElementById('downloadArea');
+  
+  let epubFiles = [];
+
+  drop.addEventListener('click', () => fileInput.click());
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault(); drop.classList.remove('drag'); handleFiles(e.dataTransfer.files);
+  });
+  fileInput.addEventListener('change', e => handleFiles(e.target.files));
+
+  async function handleFiles(fileArr) {
+    epubFiles = Array.from(fileArr).filter(f => f.name.toLowerCase().endsWith('.epub'));
+    filelistEl.innerHTML = epubFiles.map(f => `<div>📘 ${f.name} (${(f.size/1024/1024).toFixed(2)}MB)</div>`).join('');
+    runBtn.disabled = epubFiles.length === 0;
+
+    const titleInput = document.getElementById('titleOverride');
+    const authorInput = document.getElementById('authorOverride');
+
+    if (epubFiles.length === 1) {
+      try {
+        const zip = await JSZip.loadAsync(epubFiles[0]);
+        const meta = await getBookMeta(zip);
+        titleInput.value = meta.title || '';
+        authorInput.value = meta.author || '';
+        titleInput.placeholder = '제목';
+        authorInput.placeholder = '작가명';
+      } catch (e) {}
+    } else {
+      titleInput.value = ''; authorInput.value = '';
+      titleInput.placeholder = '제목 (여러 파일 선택 시 비워두면 원래 제목 유지)';
+      authorInput.placeholder = '작가명 (여러 파일 선택 시 비워두면 원래 작가명 유지)';
+    }
+  }
+
+  function log(msg) {
+    logEl.style.display = 'block';
+    logEl.textContent += msg + '\n';
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function isSpacerBlock(pText) {
+    const inner = pText.replace(/^<p(?:\s[^>]*)?>/i, '').replace(/<\/p>\s*$/i, '');
+    return inner.replace(/<br\s*\/?>/gi, '').trim() === '';
+  }
+
+  function fixParagraphSpacing(html, opts) {
+    const pRegex = /<p(?:\s[^>]*)?>[\s\S]*?<\/p>/gi;
+    const blocks = [];
+    let m;
+    while ((m = pRegex.exec(html)) !== null) {
+      blocks.push({ start: m.index, end: pRegex.lastIndex, text: m[0] });
+    }
+    if (blocks.length === 0) return { html, changed: 0 };
+
+    let changed = 0;
+    let out = html.slice(0, blocks[0].start);
+
+    for (let i = 0; i < blocks.length; i++) {
+      const b = blocks[i];
+      const curIsSpacer = isSpacerBlock(b.text);
+      let text = b.text;
+
+      if (opts.fixEmptyP && curIsSpacer && text !== '<p><br/></p>') {
+        text = text.replace(/^(<p(?:\s[^>]*)?>)[\s\S]*?(<\/p>)$/i, (full, open, close) => {
+          if (/<br\s*\/?>/i.test(full)) return full; 
+          return open + '<br/>' + close;
+        });
+        if (text !== b.text) changed++;
+      }
+      out += text;
+
+      if (i < blocks.length - 1) {
+        const next = blocks[i + 1];
+        const between = html.slice(b.end, next.start);
+        out += between;
+        if (opts.insertSpacer && /^\s*$/.test(between)) {
+          const nextIsSpacer = isSpacerBlock(next.text);
+          if (!curIsSpacer && !nextIsSpacer) {
+            const nl = between.includes('\n') ? '\n' : '';
+            out += '<p><br/></p>' + nl;
+            changed++;
+          }
+        }
+      }
+    }
+    out += html.slice(blocks[blocks.length - 1].end);
+    return { html: out, changed };
+  }
+
+  function removeTextIndent(cssOrHtml) {
+    let changed = 0;
+    const out = cssOrHtml.replace(/text-indent\s*:\s*[^;"'}]+/gi, () => { changed++; return 'text-indent: 0'; });
+    return { text: out, changed };
+  }
+
+  function sanitizeFileName(name) { return name.replace(/[\\/:*?"<>|]/g, '').trim(); }
+
+  async function getBookMeta(zip) {
+    try {
+      const containerXml = await zip.file('META-INF/container.xml').async('string');
+      const opfPathMatch = containerXml.match(/full-path="([^"]+)"/);
+      if (!opfPathMatch) return { title: null, author: null };
+      const opfPath = opfPathMatch[1];
+      const opfContent = await zip.file(opfPath).async('string');
+      const titleMatch = opfContent.match(/<dc:title[^>]*>([\s\S]*?)<\/dc:title>/i);
+      const authorMatch = opfContent.match(/<dc:creator[^>]*>([\s\S]*?)<\/dc:creator>/i);
+      const decode = (s) => {
+        if (!s) return null; const div = document.createElement('div'); div.innerHTML = s; return div.textContent.trim();
+      };
+      return { title: decode(titleMatch && titleMatch[1]), author: decode(authorMatch && authorMatch[1]) };
+    } catch (e) { return { title: null, author: null }; }
+  }
+
+  async function findCoverHref(zip, opfDoc, opfDir) {
+    const guideCover = opfDoc.querySelector('guide > reference[type="cover"]');
+    if (guideCover) return guideCover.getAttribute('href');
+
+    const coverMeta = opfDoc.querySelector('meta[name="cover"]');
+    if (!coverMeta) return null;
+    const imgId = coverMeta.getAttribute('content');
+    const imgItem = opfDoc.querySelector(`manifest > item[id="${imgId}"]`);
+    if (!imgItem) return null;
+    const imgHref = imgItem.getAttribute('href');
+    const imgBaseName = imgHref.split('/').pop();
+
+    const spineItems = Array.from(opfDoc.querySelectorAll('spine > itemref')).slice(0, 3);
+    for (const itemref of spineItems) {
+      const idref = itemref.getAttribute('idref');
+      const manItem = opfDoc.querySelector(`manifest > item[id="${idref}"]`);
+      if (!manItem) continue;
+      const href = manItem.getAttribute('href');
+      if (!/x?html?$/i.test(href)) continue;
+      const path = opfDir + href;
+      const f = zip.file(path) || zip.file(decodeURIComponent(path));
+      if (!f) continue;
+      const text = await f.async('string');
+      if (text.includes(imgBaseName)) return href;
+    }
+    return null;
+  }
+
+  async function findAllSpineHtmlItems(opfDoc, opfDir, limit) {
+    const items = Array.from(opfDoc.querySelectorAll('spine > itemref')).slice(0, limit);
+    const out = [];
+    for (const itemref of items) {
+      const idref = itemref.getAttribute('idref');
+      const manItem = opfDoc.querySelector(`manifest > item[id="${idref}"]`);
+      if (!manItem) continue;
+      const href = manItem.getAttribute('href');
+      if (!/x?html?$/i.test(href)) continue;
+      out.push(href);
+    }
+    return out;
+  }
+
+  function rewriteCoverHtml(imgSrc) {
+    return `<?xml version="1.0" encoding="utf-8"?>\n<html xmlns="http://www.w3.org/1999/xhtml"><head><meta charset="utf-8"/><title>Cover</title><style>body{margin:0;padding:0;}div.cover-page{margin:0;padding:0;}div.cover-page img{width:100%;display:block;}</style></head><body><div class="cover-page"><img src="${imgSrc}" alt="cover"/></div></body></html>`;
+  }
+
+  async function fixCoverForRidi(zip) {
+    const containerXml = await zip.file('META-INF/container.xml').async('string');
+    const opfPathMatch = containerXml.match(/full-path="([^"]+)"/);
+    if (!opfPathMatch) return { changed: 0 };
+    const opfPath = opfPathMatch[1];
+    const opfDir = opfPath.includes('/') ? opfPath.substring(0, opfPath.lastIndexOf('/')) + '/' : '';
+    const opfText = await zip.file(opfPath).async('string');
+    const parser = new DOMParser();
+    const opfDoc = parser.parseFromString(opfText, 'text/xml');
+
+    const coverHref = await findCoverHref(zip, opfDoc, opfDir);
+    if (!coverHref) return { changed: 0, found: false };
+
+    const coverPath = opfDir + coverHref;
+    const coverFile = zip.file(coverPath) || zip.file(decodeURIComponent(coverPath));
+    if (!coverFile) return { changed: 0, found: false };
+
+    const coverText = await coverFile.async('string');
+    let changedCount = 0;
+    let fixedHrefs = [];
+
+    const alreadySafe = /class=["']cover-page["']/.test(coverText) && !/<svg[\s>]/i.test(coverText);
+    let imgSrc = null;
+    const imgMatch = coverText.match(/(?:xlink:href|src)\s*=\s*["']([^"']+)["']/i);
+    if (imgMatch) imgSrc = imgMatch[1];
+
+    if (!alreadySafe) {
+      if (!imgSrc) return { changed: 0, found: false };
+      zip.file(coverPath, rewriteCoverHtml(imgSrc));
+      changedCount++;
+      fixedHrefs.push(coverHref);
+    }
+
+    if (imgSrc) {
+      const imgBaseName = imgSrc.split('/').pop();
+      const spineHtmlHrefs = await findAllSpineHtmlItems(opfDoc, opfDir, 5);
+      for (const href of spineHtmlHrefs) {
+        if (href === coverHref) continue;
+        const path = opfDir + href;
+        const f = zip.file(path) || zip.file(decodeURIComponent(path));
+        if (!f) continue;
+        const text = await f.async('string');
+        if (!text.includes(imgBaseName)) continue;
+        const isSvgCover = /<svg[\s>]/i.test(text) && /viewBox/i.test(text);
+        const isAlreadySafe = /class=["']cover-page["']/.test(text) && !/<svg[\s>]/i.test(text);
+        if (isSvgCover && !isAlreadySafe) {
+          const dupImgMatch = text.match(/(?:xlink:href|src)\s*=\s*["']([^"']+)["']/i);
+          if (dupImgMatch) {
+            zip.file(path, rewriteCoverHtml(dupImgMatch[1]));
+            changedCount++;
+            fixedHrefs.push(href);
+          }
+        }
+      }
+    }
+    if (changedCount === 0) return { changed: 0, alreadySafe: true, coverHref };
+    return { changed: changedCount, found: true, coverHref: fixedHrefs.join(', ') };
+  }
+
+  async function removeNavFromSpine(zip) {
+    const containerXml = await zip.file('META-INF/container.xml').async('string');
+    const opfPathMatch = containerXml.match(/full-path="([^"]+)"/);
+    if (!opfPathMatch) return { changed: 0 };
+    const opfPath = opfPathMatch[1];
+    const opfText = await zip.file(opfPath).async('string');
+    const parser = new DOMParser();
+    const opfDoc = parser.parseFromString(opfText, 'text/xml');
+
+    const navItems = Array.from(opfDoc.querySelectorAll('manifest > item[properties~="nav"]'));
+    if (navItems.length === 0) return { changed: 0, found: false };
+
+    const navIds = navItems.map(item => item.getAttribute('id'));
+    let changed = 0;
+    navIds.forEach(id => {
+      const itemref = opfDoc.querySelector(`spine > itemref[idref="${id}"]`);
+      if (itemref) { itemref.parentNode.removeChild(itemref); changed++; }
+    });
+
+    if (changed > 0) {
+      const serializer = new XMLSerializer();
+      zip.file(opfPath, serializer.serializeToString(opfDoc));
+    }
+    return { changed, found: true };
+  }
+
+  async function compressImageDataEpub(uint8data, mimeType, maxDim, quality, outMime) {
+    const targetMime = outMime || mimeType;
+    return new Promise((resolve, reject) => {
+      const blob = new Blob([uint8data], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => {
+        let width = img.naturalWidth, height = img.naturalHeight;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
+          else { width = Math.round(width * maxDim / height); height = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (targetMime === 'image/jpeg') { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, height); }
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob((outBlob) => {
+          URL.revokeObjectURL(url);
+          if (!outBlob) { reject(new Error('압축 실패')); return; }
+          outBlob.arrayBuffer().then(buf => resolve(new Uint8Array(buf)));
+        }, targetMime, quality);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('이미지 로드 실패')); };
+      img.src = url;
+    });
+  }
+
+  window.setImgPreset = function(preset) {
+    const fmtEl = document.getElementById('imgFormat');
+    const qEl = document.getElementById('imgQuality');
+    const dimEl = document.getElementById('imgMaxDim');
+    const valEl = document.getElementById('imgQualityVal');
+    if (preset === 'cover') { fmtEl.value = 'image/jpeg'; qEl.value = 0.82; dimEl.value = 1600; } 
+    else if (preset === 'illust') { fmtEl.value = 'image/webp'; qEl.value = 0.72; dimEl.value = 1200; } 
+    else if (preset === 'ultra') { fmtEl.value = 'image/webp'; qEl.value = 0.62; dimEl.value = 1000; }
+    if (valEl) valEl.textContent = Number(qEl.value).toFixed(2);
+  };
+
+  async function compressAllImages(zip) {
+    const entries = Object.keys(zip.files).filter(name => /\.(jpe?g|png|webp|gif)$/i.test(name) && !zip.files[name].dir);
+    const mime = document.getElementById('imgFormat').value || 'image/jpeg';
+    const quality = Number(document.getElementById('imgQuality').value) || 0.82;
+    const maxDim = Number(document.getElementById('imgMaxDim').value) || 1600;
+    const getExt = m => m === 'image/webp' ? 'webp' : m === 'image/png' ? 'png' : 'jpg';
+    const renameMap = {};
+
+    let totalBefore = 0, totalAfter = 0, changed = 0;
+    for (const name of entries) {
+      const data = await zip.files[name].async('uint8array');
+      totalBefore += data.length;
+      const srcMime = /\.png$/i.test(name) ? 'image/png' : /\.webp$/i.test(name) ? 'image/webp' : /\.gif$/i.test(name) ? 'image/gif' : 'image/jpeg';
+      try {
+        const compressed = await compressImageDataEpub(data, srcMime, maxDim, quality, mime);
+        if (compressed.length < data.length) {
+          let outName = name;
+          if (mime !== srcMime) {
+            outName = name.replace(/\.(jpe?g|png|webp|gif)$/i, '.' + getExt(mime));
+            if (outName !== name) { zip.remove(name); renameMap[name] = outName; }
+          }
+          zip.file(outName, compressed);
+          totalAfter += compressed.length;
+          changed++;
+        } else { totalAfter += data.length; }
+      } catch (e) { totalAfter += data.length; }
+    }
+
+    if (Object.keys(renameMap).length > 0) {
+      const refEntries = Object.keys(zip.files).filter(n => /\.(x?html?|opf|ncx)$/i.test(n) && !zip.files[n].dir);
+      for (const rname of refEntries) {
+        let txt = await zip.files[rname].async('string');
+        let dirty = false;
+        for (const [oldPath, newPath] of Object.entries(renameMap)) {
+          const oldFname = oldPath.split('/').pop();
+          const newFname = newPath.split('/').pop();
+          if (txt.includes(oldFname)) {
+            txt = txt.replace(new RegExp(oldFname.replace(/[.]/g, '\\.'), 'g'), newFname);
+            dirty = true;
+
+            if (/\.opf$/i.test(rname)) {
+              txt = txt.replace(/(<item\s+[^>]*>)/gi, (itemTag) => {
+                if (itemTag.includes(newFname)) {
+                  return itemTag.replace(/media-type=["']image\/[^"']+["']/i, `media-type="${mime}"`);
+                }
+                return itemTag;
+              });
+            }
+          }
+        }
+        if (dirty) zip.file(rname, txt);
+      }
+    }
+    return { changed, totalBefore, totalAfter, totalFiles: entries.length };
+  }
+
+  async function overrideMetadata(zip, newTitle, newAuthor) {
+    if (!newTitle && !newAuthor) return { changed: 0 };
+    const containerXml = await zip.file('META-INF/container.xml').async('string');
+    const opfPathMatch = containerXml.match(/full-path="([^"]+)"/);
+    if (!opfPathMatch) return { changed: 0 };
+    const opfPath = opfPathMatch[1];
+    let opfText = await zip.file(opfPath).async('string');
+    let changed = 0;
+
+    const escapeXml = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    if (newTitle) {
+      const titleCount = (opfText.match(/<dc:title[^>]*>[\s\S]*?<\/dc:title>/gi) || []).length;
+      opfText = opfText.replace(/<dc:title[^>]*>[\s\S]*?<\/dc:title>\s*/gi, '');
+      opfText = opfText.replace(/<metadata([^>]*)>/i, `<metadata$1><dc:title>${escapeXml(newTitle)}</dc:title>`);
+      changed += Math.max(titleCount, 1);
+    }
+    if (newAuthor) {
+      const authorCount = (opfText.match(/<dc:creator[^>]*>[\s\S]*?<\/dc:creator>/gi) || []).length;
+      opfText = opfText.replace(/<dc:creator[^>]*>[\s\S]*?<\/dc:creator>\s*/gi, '');
+      opfText = opfText.replace(/<metadata([^>]*)>/i, `<metadata$1><dc:creator>${escapeXml(newAuthor)}</dc:creator>`);
+      changed += Math.max(authorCount, 1);
+    }
+    zip.file(opfPath, opfText);
+    return { changed };
+  }
+
+  runBtn.addEventListener('click', async () => {
+    runBtn.disabled = true;
+    logEl.textContent = '';
+    downloadArea.innerHTML = '';
+    const opts = {
+      fixEmptyP: document.getElementById('fixEmptyP').checked,
+      insertSpacer: document.getElementById('insertSpacer').checked,
+      removeIndent: document.getElementById('removeIndent').checked,
+      fixCover: document.getElementById('fixCover').checked,
+      removeNavSpine: document.getElementById('removeNavSpine').checked,
+      compressImages: document.getElementById('compressImages').checked,
+      titleOverride: document.getElementById('titleOverride').value.trim(),
+      authorOverride: document.getElementById('authorOverride').value.trim()
+    };
+
+    for (const file of epubFiles) {
+      log(`▶ ${file.name} 처리 중...`);
+      try {
+        const zip = await JSZip.loadAsync(file);
+        let totalChanged = 0; let fileCount = 0;
+
+        const entries = Object.keys(zip.files).filter(name => /\.(x?html?)$/i.test(name) && !zip.files[name].dir);
+        for (const name of entries) {
+          const content = await zip.files[name].async('string');
+          let { html, changed } = fixParagraphSpacing(content, opts);
+          if (opts.removeIndent) {
+            const r = removeTextIndent(html); html = r.text; changed += r.changed;
+          }
+          if (changed > 0) { zip.file(name, html); totalChanged += changed; fileCount++; }
+        }
+
+        if (opts.removeIndent) {
+          const cssEntries = Object.keys(zip.files).filter(name => /\.css$/i.test(name) && !zip.files[name].dir);
+          for (const name of cssEntries) {
+            const content = await zip.files[name].async('string');
+            const r = removeTextIndent(content);
+            if (r.changed > 0) { zip.file(name, r.text); totalChanged += r.changed; }
+          }
+          log(`  └ CSS 파일 ${cssEntries.length}개 들여쓰기 해제 확인`);
+        }
+
+        if (opts.fixCover) {
+          try {
+            const coverResult = await fixCoverForRidi(zip);
+            if (coverResult.changed > 0) { log(`  └ 표지(${coverResult.coverHref}) 리디 호환 변환`); totalChanged += coverResult.changed; }
+            else if (coverResult.alreadySafe) { log(`  └ 표지 이미 호환 방식`); }
+          } catch (e) { log(`  └ 표지 변환 중 오류: ${e.message}`); }
+        }
+
+        if (opts.removeNavSpine) {
+          try {
+            const navResult = await removeNavFromSpine(zip);
+            if (navResult.changed > 0) { log(`  └ 목차(nav) ${navResult.changed}개 spine 제외`); totalChanged += navResult.changed; }
+          } catch (e) { log(`  └ nav 제외 중 오류: ${e.message}`); }
+        }
+
+        if (opts.compressImages) {
+          try {
+            const compResult = await compressAllImages(zip);
+            if (compResult.changed > 0) {
+              const bMB = (compResult.totalBefore / 1024 / 1024).toFixed(2);
+              const aMB = (compResult.totalAfter / 1024 / 1024).toFixed(2);
+              log(`  └ 이미지 ${compResult.changed}/${compResult.totalFiles}개 압축 (${bMB}MB → ${aMB}MB)`);
+              totalChanged += compResult.changed;
+            } else { log(`  └ 압축해도 더 작아지는 이미지 없음`); }
+          } catch (e) { log(`  └ 이미지 압축 중 오류: ${e.message}`); }
+        }
+
+        if (opts.titleOverride || opts.authorOverride) {
+          try {
+            const metaResult = await overrideMetadata(zip, opts.titleOverride, opts.authorOverride);
+            if (metaResult.changed > 0) { log(`  └ 제목/작가명 메타데이터 덮어씀`); totalChanged += metaResult.changed; }
+          } catch (e) {}
+        }
+
+        log(`  └ ${fileCount}개 파일, 총 ${totalChanged}곳 수정`);
+
+        const outZip = new JSZip();
+        outZip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
+        for (const name of Object.keys(zip.files)) {
+          if (name === 'mimetype') continue;
+          const entry = zip.files[name];
+          if (entry.dir) continue;
+          outZip.file(name, await entry.async('uint8array'));
+        }
+
+        const blob = await outZip.generateAsync({
+          type: 'blob', mimeType: 'application/epub+zip',
+          compression: 'DEFLATE', compressionOptions: { level: 6 }
+        });
+
+        const { title, author } = await getBookMeta(zip);
+        const cleanTitle = title ? sanitizeFileName(title) : null;
+        const cleanAuthor = author ? sanitizeFileName(author).replace(/^\[+\s*|\s*\]+$/g, '') : null;
+        const baseName = cleanTitle ? (cleanAuthor ? `[${cleanAuthor}] ${cleanTitle}` : cleanTitle) : file.name.replace(/\.epub$/i, '');
+        const outName = (baseName || 'epub') + '_정리완료.epub';
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = outName; a.className = 'dl'; a.textContent = `⬇️ ${outName} 다운로드`;
+        downloadArea.appendChild(a);
+
+        log(`✅ 완료: ${outName}`);
+      } catch (err) { log(`❌ 오류: ${err.message}`); }
+    }
+    runBtn.disabled = false;
+  });
+})();
+
+/* ==========================================
+   기능 2: 이미지 용량 최적화 로직
+   ========================================== */
+(function() {
+  const state = { files: [], results: [] };
+
+  const fileInput = document.getElementById('compressorFileInput');
+  const processBtn = document.getElementById('cProcessBtn');
+  const downloadAllBtn = document.getElementById('cDownloadAllBtn');
+  const clearBtn = document.getElementById('cClearBtn');
+  const quality = document.getElementById('cQuality');
+  const qualityText = document.getElementById('cQualityText');
+  const maxWidth = document.getElementById('cMaxWidth');
+  const format = document.getElementById('cFormat');
+  const coverMode = document.getElementById('cCoverMode');
+  const resultsEl = document.getElementById('cResults');
+  const dropzone = document.getElementById('compressorDropzone');
+
+  quality.addEventListener('input', () => { qualityText.textContent = Number(quality.value).toFixed(2); });
+
+  coverMode.addEventListener('change', () => {
+    const mode = coverMode.value;
+    if (mode === 'cover') { maxWidth.value = 1600; quality.value = 0.82; format.value = 'image/jpeg'; } 
+    else if (mode === 'illustration') { maxWidth.value = 1200; quality.value = 0.72; format.value = 'image/webp'; } 
+    else if (mode === 'ultra') { maxWidth.value = 1000; quality.value = 0.62; format.value = 'image/webp'; }
+    qualityText.textContent = Number(quality.value).toFixed(2);
+  });
+
+  fileInput.addEventListener('change', (e) => { addFiles([...e.target.files]); });
+
+  ['dragenter', 'dragover'].forEach(evt => {
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
+  });
+  ['dragleave', 'drop'].forEach(evt => {
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove('drag'); });
+  });
+  dropzone.addEventListener('drop', (e) => {
+    addFiles([...e.dataTransfer.files].filter(f => f.type.startsWith('image/')));
+  });
+
+  clearBtn.addEventListener('click', () => {
+    state.files = []; state.results = []; fileInput.value = ''; render();
+  });
+
+  processBtn.addEventListener('click', async () => {
+    if (!state.files.length) { alert('먼저 이미지 파일을 넣어주세요.'); return; }
+    processBtn.disabled = true; processBtn.textContent = '압축 중...';
+    state.results = [];
+    try {
+      for (const file of state.files) {
+        state.results.push(await compressImage(file)); render();
+      }
+    } catch (err) { alert('압축 중 오류가 발생했습니다.'); } 
+    finally { processBtn.disabled = false; processBtn.textContent = '압축 시작'; render(); }
+  });
+
+  downloadAllBtn.addEventListener('click', async () => {
+    if (!state.results.length) { alert('먼저 압축을 실행해주세요.'); return; }
+    for (const item of state.results) { downloadBlob(item.blob, item.outputName); await wait(180); }
+  });
+
+  function addFiles(files) { state.files.push(...files.filter(f => f.type.startsWith('image/'))); render(); }
+  function wait(ms) { return new Promise(res => setTimeout(res, ms)); }
+  function formatBytes(bytes) {
+    if (!bytes) return '0 B'; const units = ['B', 'KB', 'MB', 'GB']; let i = 0; let v = bytes;
+    while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+    return `${v.toFixed(v >= 10 || i === 0 ? 0 : 2)} ${units[i]}`;
+  }
+  function getExt(mime) { return mime === 'image/webp' ? 'webp' : mime === 'image/jpeg' ? 'jpg' : mime === 'image/png' ? 'png' : 'img'; }
+  function baseName(name) { const idx = name.lastIndexOf('.'); return idx > 0 ? name.slice(0, idx) : name; }
+
+  async function compressImage(file) {
+    const bitmap = await createImageBitmap(file);
+    let targetWidth = bitmap.width, targetHeight = bitmap.height;
+    const maxW = Number(maxWidth.value) || bitmap.width;
+
+    if (bitmap.width > maxW) {
+      const ratio = maxW / bitmap.width;
+      targetWidth = Math.round(bitmap.width * ratio); targetHeight = Math.round(bitmap.height * ratio);
+    }
+
+    const canvas = document.createElement('canvas'); canvas.width = targetWidth; canvas.height = targetHeight;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, targetWidth, targetHeight);
+    ctx.drawImage(bitmap, 0, 0, targetWidth, targetHeight);
+
+    const isGif = file.type === 'image/gif';
+    const mime = isGif ? 'image/jpeg' : format.value;
+    const q = Number(quality.value);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, mime, q));
+    const saved = file.size - blob.size; const percent = file.size > 0 ? ((saved / file.size) * 100) : 0;
+    const gifNote = isGif ? ' (GIF→JPG 첫프레임)' : '';
+
+    return {
+      inputName: file.name, outputName: `${baseName(file.name)}_optimized.${getExt(mime)}`,
+      originalSize: file.size, compressedSize: blob.size, saved, percent,
+      width: bitmap.width, height: bitmap.height, outWidth: targetWidth, outHeight: targetHeight,
+      blob, previewUrl: URL.createObjectURL(blob), mime, gifNote
+    };
+  }
+
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+
+  window.downloadOne = function(idx) {
+    const item = state.results[idx];
+    if (item) downloadBlob(item.blob, item.outputName);
+  };
+
+  function render() {
+    const origTotal = state.results.length ? state.results.reduce((s, i) => s + i.originalSize, 0) : state.files.reduce((s, f) => s + f.size, 0);
+    const compTotal = state.results.reduce((s, i) => s + i.compressedSize, 0);
+    const saved = Math.max(0, origTotal - compTotal);
+    const rate = origTotal ? (saved / origTotal) * 100 : 0;
+
+    document.getElementById('cTotalOriginal').textContent = formatBytes(origTotal);
+    document.getElementById('cTotalCompressed').textContent = formatBytes(compTotal);
+    document.getElementById('cSavedAmount').textContent = formatBytes(saved);
+    document.getElementById('cSavedRate').textContent = `${rate.toFixed(1)}%`;
+
+    if (!state.files.length && !state.results.length) {
+      resultsEl.innerHTML = '<p style="color:#94a3b8; margin:0; text-align:center; padding: 20px;">아직 파일이 없습니다.</p>'; return;
+    }
+
+    if (!state.results.length) {
+      resultsEl.innerHTML = state.files.map(f => `
+        <div class="item">
+          <div style="display:flex;align-items:center;justify-content:center;height:120px;border-radius:12px;background:#faf9ff;border:1px solid #eee;">🖼️</div>
+          <div class="meta"><div><b>${escapeHtml(f.name)}</b></div><small>${formatBytes(f.size)}</small><div><span class="pill">대기 중</span></div></div>
+        </div>`).join('');
+      return;
+    }
+
+    resultsEl.innerHTML = state.results.map((i, idx) => `
+      <div class="item">
+        <img src="${i.previewUrl}" alt="preview ${idx + 1}" />
+        <div class="meta">
+          <div><b>${escapeHtml(i.inputName)}</b>${i.gifNote ? `<span style="font-size:11px;color:#f59e0b;margin-left:6px;">${i.gifNote}</span>` : ''}</div>
+          <small>${i.width}×${i.height} → ${i.outWidth}×${i.outHeight}</small>
+          <small>${formatBytes(i.originalSize)} → ${formatBytes(i.compressedSize)}</small>
+          <div>
+            <span class="pill">${i.mime.replace('image/','').toUpperCase()}</span>
+            <span class="${i.saved >= 0 ? 'save' : 'warn'}">${i.saved >= 0 ? `${i.percent.toFixed(1)}% 절감` : '증가'}</span>
+          </div>
+          <div class="btn-row"><button class="btn-secondary" onclick="downloadOne(${idx})">${escapeHtml(i.outputName)} 다운로드</button></div>
+        </div>
+      </div>`).join('');
+  }
+
+  function escapeHtml(str) { return str.replace(/[&<>"']/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[m])); }
+  render();
+})();
+
+
+/* ==========================================
+   기능 3: EPUB 자동 정리 로직 (수동 삭제 대체)
+   ========================================== */
+(function() {
+  const drop = document.getElementById('cleanerDrop');
+  const fileInput = document.getElementById('cleanerFileInput');
+  const previewBtn = document.getElementById('cleanerPreviewBtn');
+  const runBtn = document.getElementById('cleanerRunBtn');
+  const summaryEl = document.getElementById('cleanerSummary');
+  const logEl = document.getElementById('cleanerLog');
+  const downloadEl = document.getElementById('cleanerDownload');
+  
+  let currentFile = null;
+  let cleanPlan = null;
+  let epubZip = null;
+
+  // 체크박스 혹은 닉네임 입력 내용이 변경되면 미리보기 초기화
+  const cleanerInputs = document.querySelectorAll('#epub-cleaner input');
+  cleanerInputs.forEach(input => {
+    input.addEventListener('input', () => {
+       summaryEl.style.display = 'none';
+       runBtn.style.display = 'none';
+    });
+  });
+
+  drop.addEventListener('click', () => fileInput.click());
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault(); drop.classList.remove('drag');
+    const f = e.dataTransfer.files[0];
+    if (f && f.name.toLowerCase().endsWith('.epub')) loadEpub(f);
+  });
+  fileInput.addEventListener('change', e => {
+    if (e.target.files[0]) loadEpub(e.target.files[0]);
+  });
+
+  function loadEpub(file) {
+    currentFile = file;
+    drop.textContent = `📘 ${file.name} 준비됨`;
+    previewBtn.disabled = false;
+    runBtn.style.display = 'none';
+    summaryEl.style.display = 'none';
+    logEl.style.display = 'none';
+    downloadEl.innerHTML = '';
+    cleanPlan = null;
+  }
+
+  // Cover image finder helper function
+  async function findCoverHrefLocal(zip, opfDoc, opfDir) {
+    const guideCover = opfDoc.querySelector('guide > reference[type="cover"]');
+    if (guideCover) return guideCover.getAttribute('href');
+    const coverMeta = opfDoc.querySelector('meta[name="cover"]');
+    if (coverMeta) {
+      const imgId = coverMeta.getAttribute('content');
+      const imgItem = opfDoc.querySelector(`manifest > item[id="${imgId}"]`);
+      if (imgItem) return imgItem.getAttribute('href');
+    }
+    const imgItems = Array.from(opfDoc.querySelectorAll(`manifest > item[media-type^="image/"]`));
+    for(const item of imgItems) {
+      if(/cover/i.test(item.getAttribute('href'))) return item.getAttribute('href');
+    }
+    return null;
+  }
+
+  previewBtn.addEventListener('click', async () => {
+    if (!currentFile) return;
+    previewBtn.disabled = true;
+    previewBtn.textContent = '🔍 분석 중...';
+    
+    try {
+      epubZip = await JSZip.loadAsync(currentFile);
+      
+      const opts = {
+        chkDivider: document.getElementById('chkDivider').checked,
+        chkEmpty: document.getElementById('chkEmpty').checked,
+        chkToc: document.getElementById('chkToc').checked,
+        chkDupCover: document.getElementById('chkDupCover').checked,
+        chkUnusedImg: document.getElementById('chkUnusedImg').checked,
+        chkUnusedXhtml: document.getElementById('chkUnusedXhtml').checked,
+        chkNickname: document.getElementById('chkNickname').checked
+      };
+
+      const containerXml = await epubZip.file('META-INF/container.xml').async('string');
+      const opfPathMatch = containerXml.match(/full-path="([^"]+)"/);
+      const opfPath = opfPathMatch[1];
+      const opfDir = opfPath.includes('/') ? opfPath.substring(0, opfPath.lastIndexOf('/')) + '/' : '';
+      const opfText = await epubZip.file(opfPath).async('string');
+      const parser = new DOMParser();
+      const opfDoc = parser.parseFromString(opfText, 'text/xml');
+
+      const spineIds = Array.from(opfDoc.querySelectorAll('spine > itemref')).map(el => el.getAttribute('idref'));
+      const manifestItems = Array.from(opfDoc.querySelectorAll('manifest > item'));
+      
+      const htmlFiles = [];
+      const imgFiles = [];
+      const cssFiles = [];
+      
+      manifestItems.forEach(item => {
+        const href = item.getAttribute('href');
+        const media = item.getAttribute('media-type');
+        if (/html?/i.test(media)) htmlFiles.push({ id: item.getAttribute('id'), href });
+        else if (/image/i.test(media)) imgFiles.push({ id: item.getAttribute('id'), href });
+        else if (/css/i.test(media)) cssFiles.push({ id: item.getAttribute('id'), href });
+      });
+
+      const htmlTexts = {};
+      const cssTexts = {};
+      for(const f of htmlFiles) {
+        const zf = epubZip.file(opfDir + f.href) || epubZip.file(decodeURIComponent(opfDir + f.href));
+        if(zf) htmlTexts[f.href] = await zf.async('string');
+      }
+      for(const f of cssFiles) {
+        const zf = epubZip.file(opfDir + f.href) || epubZip.file(decodeURIComponent(opfDir + f.href));
+        if(zf) cssTexts[f.href] = await zf.async('string');
+      }
+
+      cleanPlan = { dividers: [], empty: [], toc: [], dupCoverPages: [], dupCoverImgs: [], unusedImg: [], unusedXhtml: [], imgRemap: {}, nicknameCount: 0, nicknameStr: '' };
+
+      // 1. Dividers (b1_vol_title.xhtml 등)
+      if (opts.chkDivider) {
+        htmlFiles.forEach(f => {
+          if (/b\d+_vol_title\.x?html?/i.test(f.href)) {
+            cleanPlan.dividers.push(f.href);
+          }
+        });
+      }
+
+      // 2. Empty Pages
+      if (opts.chkEmpty) {
+        htmlFiles.forEach(f => {
+          if (cleanPlan.dividers.includes(f.href)) return;
+          const html = htmlTexts[f.href];
+          if(html) {
+            const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+            if (bodyMatch) {
+              const body = bodyMatch[1];
+              if (!/<img|<svg/i.test(body)) {
+                const text = body.replace(/<[^>]+>/g, '').replace(/\s+/g, '').trim();
+                if (text.length < 5) cleanPlan.empty.push(f.href);
+              }
+            }
+          }
+        });
+      }
+
+      // 3. TOC Pages
+      if (opts.chkToc) {
+        htmlFiles.forEach(f => {
+          if (cleanPlan.dividers.includes(f.href) || cleanPlan.empty.includes(f.href)) return;
+          if (/(toc|목차)\.x?html?/i.test(f.href) || (htmlTexts[f.href] && /<nav[^>]+epub:type=["']toc["']/i.test(htmlTexts[f.href]))) {
+            cleanPlan.toc.push(f.href);
+          }
+        });
+      }
+
+      // 4. Duplicate Covers
+      if (opts.chkDupCover) {
+        const coverHref = await findCoverHrefLocal(epubZip, opfDoc, opfDir);
+        if (coverHref) {
+          const cPath = opfDir + coverHref;
+          const cFile = epubZip.file(cPath) || epubZip.file(decodeURIComponent(cPath));
+          if (cFile) {
+            const coverData = await cFile.async('uint8array');
+            
+            // Find duplicate image files
+            for(const img of imgFiles) {
+              if (img.href !== coverHref) {
+                const iPath = opfDir + img.href;
+                const iFile = epubZip.file(iPath) || epubZip.file(decodeURIComponent(iPath));
+                if (iFile) {
+                  const iData = await iFile.async('uint8array');
+                  if (iData.length === coverData.length) {
+                    let same = true;
+                    for (let i = 0; i < coverData.length; i++) {
+                      if (iData[i] !== coverData[i]) { same = false; break; }
+                    }
+                    if (same) {
+                      cleanPlan.dupCoverImgs.push(img.href);
+                      cleanPlan.imgRemap[img.href.split('/').pop()] = coverHref.split('/').pop();
+                    }
+                  }
+                }
+              }
+            }
+            
+            // Find duplicate cover pages in spine
+            let mainCoverPageFound = false;
+            for (const id of spineIds) {
+              const man = htmlFiles.find(h => h.id === id);
+              if(man) {
+                const html = htmlTexts[man.href];
+                if (html) {
+                  const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+                  if (bodyMatch) {
+                    const text = bodyMatch[1].replace(/<[^>]+>/g, '').replace(/\s+/g, '').trim();
+                    const hasCoverImg = bodyMatch[1].includes(coverHref.split('/').pop());
+                    if (text.length < 5 && hasCoverImg) {
+                      if (!mainCoverPageFound) mainCoverPageFound = true;
+                      else if (!cleanPlan.dupCoverPages.includes(man.href)) cleanPlan.dupCoverPages.push(man.href);
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Usage checker helper
+      const isUsed = (basename) => {
+        const escaped = basename.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(escaped, 'i');
+        for(const k in htmlTexts) {
+          if (cleanPlan.dividers.includes(k) || cleanPlan.empty.includes(k) || cleanPlan.toc.includes(k) || cleanPlan.dupCoverPages.includes(k)) continue;
+          if (regex.test(htmlTexts[k])) return true;
+        }
+        for(const k in cssTexts) {
+          if (regex.test(cssTexts[k])) return true;
+        }
+        return false;
+      };
+
+      // 5. Unused Images
+      if (opts.chkUnusedImg) {
+        for(const img of imgFiles) {
+          if (cleanPlan.dupCoverImgs.includes(img.href)) continue;
+          const basename = img.href.split('/').pop();
+          if (!isUsed(basename)) cleanPlan.unusedImg.push(img.href);
+        }
+      }
+
+      // 6. Unused XHTML
+      if (opts.chkUnusedXhtml) {
+        let ncxText = "";
+        const ncxItem = manifestItems.find(i => i.getAttribute('media-type') === 'application/x-dtbncx+xml');
+        if(ncxItem) {
+          const zf = epubZip.file(opfDir + ncxItem.getAttribute('href')) || epubZip.file(decodeURIComponent(opfDir + ncxItem.getAttribute('href')));
+          if(zf) ncxText = await zf.async('string');
+        }
+
+        for(const html of htmlFiles) {
+          if (cleanPlan.dividers.includes(html.href) || cleanPlan.empty.includes(html.href) || cleanPlan.toc.includes(html.href) || cleanPlan.dupCoverPages.includes(html.href)) continue;
+          if (spineIds.includes(html.id)) continue;
+          
+          const basename = html.href.split('/').pop();
+          if (ncxText && ncxText.includes(basename)) continue;
+
+          let linked = false;
+          for(const k in htmlTexts) {
+            if (k === html.href) continue;
+            if (cleanPlan.dividers.includes(k) || cleanPlan.empty.includes(k) || cleanPlan.toc.includes(k) || cleanPlan.dupCoverPages.includes(k)) continue;
+            if (htmlTexts[k].includes(basename)) { linked = true; break; }
+          }
+          if (!linked) cleanPlan.unusedXhtml.push(html.href);
+        }
+      }
+
+      // 7. Nickname removal
+      if (opts.chkNickname) {
+        const nickname = document.getElementById('nicknameInput').value.trim();
+        if (nickname) {
+          const regex = new RegExp(nickname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+          
+          // HTML 검사
+          for(const html of htmlFiles) {
+            if (cleanPlan.dividers.includes(html.href) || cleanPlan.empty.includes(html.href) || cleanPlan.toc.includes(html.href) || cleanPlan.dupCoverPages.includes(html.href)) continue;
+            const text = htmlTexts[html.href];
+            if (text) {
+              const matches = text.match(regex);
+              if (matches) cleanPlan.nicknameCount += matches.length;
+            }
+          }
+          
+          // NCX 검사
+          let ncxText = "";
+          const ncxItem = manifestItems.find(i => i.getAttribute('media-type') === 'application/x-dtbncx+xml');
+          if(ncxItem) {
+            const zf = epubZip.file(opfDir + ncxItem.getAttribute('href')) || epubZip.file(decodeURIComponent(opfDir + ncxItem.getAttribute('href')));
+            if(zf) {
+              ncxText = await zf.async('string');
+              const matches = ncxText.match(regex);
+              if (matches) cleanPlan.nicknameCount += matches.length;
+            }
+          }
+          cleanPlan.nicknameStr = nickname;
+        }
+      }
+
+      // Show summary
+      summaryEl.style.display = 'block';
+      let summaryHtml = `<b>[삭제 전 미리보기]</b><br/><br/>`;
+      
+      if (cleanPlan.dividers.length) summaryHtml += `✔️ 합권 구분 페이지 ${cleanPlan.dividers.length}개 발견<br/>`;
+      if (cleanPlan.empty.length) summaryHtml += `✔️ 빈 페이지 ${cleanPlan.empty.length}개 발견<br/>`;
+      if (cleanPlan.toc.length) summaryHtml += `✔️ 책 안쪽 목차 ${cleanPlan.toc.length}개 발견<br/>`;
+      
+      const dupTotal = cleanPlan.dupCoverPages.length + cleanPlan.dupCoverImgs.length;
+      if (dupTotal > 0) summaryHtml += `✔️ 중복 표지 ${dupTotal}개 발견<br/>`;
+      if (cleanPlan.unusedImg.length) summaryHtml += `✔️ 사용하지 않는 이미지 ${cleanPlan.unusedImg.length}개 발견<br/>`;
+      if (cleanPlan.unusedXhtml.length) summaryHtml += `✔️ 사용하지 않는 페이지 ${cleanPlan.unusedXhtml.length}개 발견<br/>`;
+      
+      if (cleanPlan.nicknameCount > 0) summaryHtml += `✔️ 닉네임 표시(${cleanPlan.nicknameStr}) ${cleanPlan.nicknameCount}곳 발견<br/>`;
+
+      const totalItems = cleanPlan.dividers.length + cleanPlan.empty.length + cleanPlan.toc.length + dupTotal + cleanPlan.unusedImg.length + cleanPlan.unusedXhtml.length + cleanPlan.nicknameCount;
+      
+      if (totalItems === 0) {
+        summaryHtml += `<span style="color:var(--success);">💡 체크한 항목 중 삭제할 요소가 발견되지 않았습니다. 파일이 이미 깨끗합니다!</span>`;
+      } else {
+        summaryHtml += `<br/><span style="color:var(--primary);font-weight:bold;">총 ${totalItems}개 항목이 정리됩니다. 아래 버튼을 눌러 실행해주세요.</span>`;
+        runBtn.style.display = 'block';
+        runBtn.disabled = false;
+      }
+      
+      summaryEl.innerHTML = summaryHtml;
+      
+    } catch(e) {
+      summaryEl.style.display = 'block';
+      summaryEl.innerHTML = `<span style="color:red;">❌ 분석 오류: ${e.message}</span>`;
+    } finally {
+      previewBtn.textContent = '🔍 삭제 전 미리보기 (필수)';
+      previewBtn.disabled = false;
+    }
+  });
+
+  runBtn.addEventListener('click', async () => {
+    if (!epubZip || !cleanPlan) return;
+    runBtn.disabled = true;
+    logEl.textContent = '';
+    logEl.style.display = 'block';
+    downloadEl.innerHTML = '';
+    
+    function log(m) { logEl.textContent += m + '\n'; logEl.scrollTop = logEl.scrollHeight; }
+    
+    try {
+      const containerXml = await epubZip.file('META-INF/container.xml').async('string');
+      const opfPath = containerXml.match(/full-path="([^"]+)"/)[1];
+      const opfDir = opfPath.includes('/') ? opfPath.substring(0, opfPath.lastIndexOf('/')) + '/' : '';
+      const opfText = await epubZip.file(opfPath).async('string');
+      const parser = new DOMParser();
+      const opfDoc = parser.parseFromString(opfText, 'text/xml');
+
+      const toDeleteXhtml = [...cleanPlan.dividers, ...cleanPlan.empty, ...cleanPlan.toc, ...cleanPlan.dupCoverPages, ...cleanPlan.unusedXhtml];
+      const toDeleteImg = [...cleanPlan.dupCoverImgs, ...cleanPlan.unusedImg];
+      const allToDelete = [...toDeleteXhtml, ...toDeleteImg];
+
+      let removedCount = 0;
+      
+      // 파일 및 메타데이터 삭제 처리
+      allToDelete.forEach(href => {
+        const zPath = opfDir + href;
+        if(epubZip.file(zPath)) epubZip.remove(zPath);
+        else if(epubZip.file(decodeURIComponent(zPath))) epubZip.remove(decodeURIComponent(zPath));
+        
+        const manItem = opfDoc.querySelector(`manifest > item[href="${href}"]`);
+        if(manItem) {
+          const id = manItem.getAttribute('id');
+          const spineItem = opfDoc.querySelector(`spine > itemref[idref="${id}"]`);
+          if(spineItem) spineItem.parentNode.removeChild(spineItem);
+          manItem.parentNode.removeChild(manItem);
+          removedCount++;
+        }
+      });
+      
+      if(removedCount > 0) log(`🗑️ 총 ${removedCount}개의 불필요한 파일 및 참조를 제거했습니다.`);
+
+      // 중복 표지 이미지 참조 업데이트
+      if (Object.keys(cleanPlan.imgRemap).length > 0) {
+        const manifestItems = Array.from(opfDoc.querySelectorAll('manifest > item[media-type^="application/xhtml"]'));
+        let changedRefs = 0;
+        for(const item of manifestItems) {
+          const href = item.getAttribute('href');
+          if(!toDeleteXhtml.includes(href)) {
+            const zPath = opfDir + href;
+            const zFile = epubZip.file(zPath) || epubZip.file(decodeURIComponent(zPath));
+            if(zFile) {
+              let html = await zFile.async('string');
+              let changed = false;
+              for(const [dupImg, mainImg] of Object.entries(cleanPlan.imgRemap)) {
+                if (html.includes(dupImg)) {
+                  html = html.split(dupImg).join(mainImg);
+                  changed = true;
+                }
+              }
+              if(changed) {
+                epubZip.file(zPath, html);
+                changedRefs++;
+              }
+            }
+          }
+        }
+        if(changedRefs > 0) log(`🔗 표지 중복 이미지 참조 업데이트 완료 (${changedRefs}개 문서)`);
+      }
+
+      // NCX에서 삭제된 페이지 참조 제거
+      const ncxItem = opfDoc.querySelector('manifest > item[media-type="application/x-dtbncx+xml"]');
+      let ncxDoc = null;
+      let ncxPath = "";
+      if (ncxItem) {
+        ncxPath = opfDir + ncxItem.getAttribute('href');
+        const ncxFile = epubZip.file(ncxPath) || epubZip.file(decodeURIComponent(ncxPath));
+        if (ncxFile) {
+          let ncxText = await ncxFile.async('string');
+          ncxDoc = parser.parseFromString(ncxText, 'text/xml');
+        }
+      }
+
+      if (toDeleteXhtml.length > 0 && ncxDoc) {
+        let ncxRemoved = 0;
+        toDeleteXhtml.forEach(href => {
+          const basename = href.split('/').pop();
+          ncxDoc.querySelectorAll('navPoint').forEach(np => {
+            const src = np.querySelector('content')?.getAttribute('src') || '';
+            if (src.includes(basename)) {
+              np.parentNode.removeChild(np);
+              ncxRemoved++;
+            }
+          });
+        });
+        if (ncxRemoved > 0) {
+          log(`📑 목차(NCX)에서 ${ncxRemoved}개 빈 항목 제거됨`);
+        }
+      }
+
+      // 사용자 닉네임 일괄 삭제 처리
+      if (cleanPlan.nicknameCount > 0 && cleanPlan.nicknameStr) {
+        const regex = new RegExp(cleanPlan.nicknameStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+        let replacedFilesCount = 0;
+
+        // HTML 텍스트 내 닉네임 삭제
+        const manifestItems = Array.from(opfDoc.querySelectorAll('manifest > item[media-type^="application/xhtml"]'));
+        for(const item of manifestItems) {
+          const href = item.getAttribute('href');
+          if(!toDeleteXhtml.includes(href)) {
+            const zPath = opfDir + href;
+            const zFile = epubZip.file(zPath) || epubZip.file(decodeURIComponent(zPath));
+            if(zFile) {
+              let html = await zFile.async('string');
+              if (regex.test(html)) {
+                html = html.replace(regex, '');
+                epubZip.file(zPath, html);
+                replacedFilesCount++;
+              }
+            }
+          }
+        }
+        
+        // NCX 텍스트 내 닉네임 삭제
+        if (ncxDoc) {
+          const serializer = new XMLSerializer();
+          let ncxString = serializer.serializeToString(ncxDoc);
+          if (regex.test(ncxString)) {
+            ncxString = ncxString.replace(regex, '');
+            ncxDoc = parser.parseFromString(ncxString, 'text/xml');
+          }
+        }
+        log(`✏️ 닉네임 표시(${cleanPlan.nicknameStr}) ${cleanPlan.nicknameCount}곳 삭제 완료`);
+      }
+
+      // 최종 NCX 및 OPF 저장
+      const serializer = new XMLSerializer();
+      epubZip.file(opfPath, serializer.serializeToString(opfDoc));
+      if (ncxDoc && ncxPath) {
+        epubZip.file(ncxPath, serializer.serializeToString(ncxDoc));
+      }
+
+      // 최종 EPUB 묶기
+      epubZip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
+      const blob = await epubZip.generateAsync({ type: 'blob', mimeType: 'application/epub+zip', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+      const outName = currentFile.name.replace(/\.epub$/i, '') + '_정리완료.epub';
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = outName; a.className = 'dl';
+      a.textContent = `⬇️ ${outName} 다운로드`;
+      downloadEl.appendChild(a);
+      
+      log(`✅ EPUB 정리 완료! 위의 버튼을 눌러 저장하세요.`);
+      
+    } catch(e) {
+      log(`❌ 오류 발생: ${e.message}`);
+    }
+    
+    runBtn.disabled = false;
+  });
+})();
+</script>
+
+</body>
+</html>
