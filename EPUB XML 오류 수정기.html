@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang=ko>
+<meta charset=UTF-8>
+<meta name=viewport content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
+<title>EPUB XML 오류 수정기 v1.0</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<style>
+:root {
+  --p: #b19cd9;
+  --p2: #967bb6;
+  --bg: #f8f7ff;
+  --card: #fff;
+  --border: #e2dcf4;
+  --text: #4a446a;
+  --sub: #9992b8;
+  --green: #4caf7d;
+  --red: #ff6b6b;
+  --yellow: #f5a623;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: Pretendard, -apple-system, sans-serif;
+  margin: 0;
+  padding: 16px 16px 40px;
+  display: flex;
+  justify-content: center;
+}
+.container { width: 100%; max-width: 480px; }
+h2 {
+  color: var(--p2);
+  font-size: 1.25rem;
+  font-weight: 800;
+  text-align: center;
+  margin: 0 0 4px;
+  letter-spacing: -.3px;
+}
+.subtitle {
+  text-align: center;
+  color: var(--sub);
+  font-size: .78rem;
+  margin-bottom: 20px;
+}
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 18px;
+  margin-bottom: 14px;
+  box-shadow: 0 4px 16px #b19cd912;
+}
+/* 드롭존 */
+.drop-zone {
+  border: 2px dashed var(--p);
+  border-radius: 16px;
+  padding: 28px 16px;
+  text-align: center;
+  cursor: pointer;
+  background: #fff;
+  transition: all .2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.drop-zone.drag-active { background: #f0eeff; border-color: var(--p2); transform: scale(1.01); }
+.drop-zone-icon { font-size: 2.2rem; margin-bottom: 6px; }
+.drop-zone-text { color: var(--p); font-size: .95rem; font-weight: 700; }
+.drop-zone-sub { color: #bbb; font-size: .75rem; margin-top: 4px; }
+/* 파일 목록 */
+.file-list { margin-top: 10px; display: none; }
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: .82rem;
+}
+.file-item:last-child { border-bottom: none; }
+.file-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-remove { color: var(--red); cursor: pointer; font-size: .75rem; border: 1px solid var(--red); border-radius: 4px; padding: 1px 6px; flex-shrink: 0; }
+/* 옵션 */
+.section-title {
+  font-size: .8rem;
+  font-weight: 700;
+  color: var(--sub);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-bottom: 10px;
+}
+.opt-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 0;
+  border-bottom: 1px solid #f5f3ff;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.opt-row:last-child { border-bottom: none; }
+.opt-row input[type=checkbox] {
+  width: 18px; height: 18px;
+  accent-color: var(--p);
+  flex-shrink: 0;
+  margin-top: 1px;
+  cursor: pointer;
+}
+.opt-label { font-size: .88rem; font-weight: 600; color: var(--text); }
+.opt-hint { font-size: .75rem; color: var(--sub); margin-top: 2px; line-height: 1.4; }
+/* 버튼 */
+.btn-main {
+  width: 100%;
+  background: linear-gradient(135deg, var(--p), var(--p2));
+  color: #fff;
+  border: none;
+  border-radius: 30px;
+  padding: 17px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px #b19cd940;
+  transition: opacity .2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-main:disabled { opacity: .5; cursor: not-allowed; }
+/* 로그 */
+.log-box {
+  background: #fafafa;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  font-size: .78rem;
+  line-height: 1.7;
+  color: var(--text);
+  display: none;
+  margin-top: 12px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.log-ok { color: var(--green); }
+.log-warn { color: var(--yellow); }
+.log-err { color: var(--red); }
+.log-info { color: var(--sub); }
+/* 결과 배지 */
+.result-badge {
+  display: inline-block;
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: .72rem;
+  font-weight: 700;
+  margin-left: 6px;
+}
+.badge-fixed { background: #e8f8ee; color: var(--green); }
+.badge-clean { background: #f0eeff; color: var(--p2); }
+.badge-err { background: #fff0f0; color: var(--red); }
+/* 다운로드 */
+.dl-area { margin-top: 10px; display: none; }
+.dl-btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  background: #e8f8ee;
+  color: var(--green);
+  border: 1.5px solid #b2dfca;
+  border-radius: 12px;
+  padding: 13px;
+  font-size: .9rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-bottom: 8px;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .15s;
+}
+.dl-btn:hover { background: #d4f0df; }
+</style>
+
+<body>
+<div class="container">
+  <h2>🔧 EPUB XML 오류 수정기</h2>
+  <div class="subtitle">v1.0 · 파일룸 등에서 XML 오류 나는 EPUB 자동 수정</div>
+
+  <!-- 파일 선택 -->
+  <div class="card">
+    <input type="file" id="epubInput" accept=".epub" multiple style="display:none">
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('epubInput').click()">
+      <div class="drop-zone-icon">📚</div>
+      <div class="drop-zone-text">EPUB 파일 선택 또는 드래그</div>
+      <div class="drop-zone-sub">여러 파일 한번에 가능</div>
+    </div>
+    <div class="file-list" id="fileList"></div>
+  </div>
+
+  <!-- 수정 옵션 -->
+  <div class="card">
+    <div class="section-title">수정 항목 선택</div>
+
+    <label class="opt-row">
+      <input type="checkbox" id="optEntity" checked>
+      <div>
+        <div class="opt-label">HTML 엔티티 변환</div>
+        <div class="opt-hint">&amp;nbsp; &amp;mdash; &amp;hellip; 등 → 숫자 엔티티로 변환</div>
+      </div>
+    </label>
+
+    <label class="opt-row">
+      <input type="checkbox" id="optVoidTag" checked>
+      <div>
+        <div class="opt-label">닫힘 없는 태그 수정</div>
+        <div class="opt-hint">&lt;br&gt; &lt;hr&gt; &lt;img&gt; 등 → &lt;br/&gt; 형태로 수정</div>
+      </div>
+    </label>
+
+    <label class="opt-row">
+      <input type="checkbox" id="optAngleBracket" checked>
+      <div>
+        <div class="opt-label">꺾쇠 텍스트 이스케이프</div>
+        <div class="opt-hint">&lt;브랜드명&gt; &lt;Maison Blanc&gt; 등 태그 오인식 수정</div>
+      </div>
+    </label>
+
+    <label class="opt-row">
+      <input type="checkbox" id="optEncoding">
+      <div>
+        <div class="opt-label">인코딩 선언 보정</div>
+        <div class="opt-hint">XHTML 파일에 XML 선언/인코딩이 없는 경우 추가</div>
+      </div>
+    </label>
+  </div>
+
+  <!-- 실행 버튼 -->
+  <button class="btn-main" id="btnRun" disabled onclick="runFixer()">파일을 선택해주세요</button>
+
+  <!-- 로그 -->
+  <div class="log-box" id="logBox"></div>
+
+  <!-- 다운로드 -->
+  <div class="dl-area" id="dlArea"></div>
+</div>
+
+<script>
+// ── 파일 관리 ─────────────────────────────────────────
+let files = [];
+
+document.getElementById('epubInput').addEventListener('change', e => addFiles(Array.from(e.target.files)));
+
+const dz = document.getElementById('dropZone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-active'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-active'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-active'); addFiles(Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.epub'))); });
+
+function addFiles(newFiles) {
+  newFiles.forEach(f => { if (!files.find(x => x.name === f.name)) files.push(f); });
+  renderFileList();
+}
+
+function removeFile(name) {
+  files = files.filter(f => f.name !== name);
+  renderFileList();
+}
+
+function renderFileList() {
+  const fl = document.getElementById('fileList');
+  const btn = document.getElementById('btnRun');
+  if (files.length === 0) {
+    fl.style.display = 'none';
+    btn.disabled = true;
+    btn.textContent = '파일을 선택해주세요';
+    return;
+  }
+  fl.style.display = 'block';
+  fl.innerHTML = files.map(f => `
+    <div class="file-item">
+      <span>📖</span>
+      <span class="file-name">${escHtml(f.name)}</span>
+      <span class="file-remove" onclick="removeFile('${escHtml(f.name)}')">✕</span>
+    </div>
+  `).join('');
+  btn.disabled = false;
+  btn.textContent = `🔧 ${files.length}개 파일 수정 시작`;
+}
+
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ── 로그 ─────────────────────────────────────────────
+const logBox = document.getElementById('logBox');
+function log(msg, cls='') {
+  logBox.style.display = 'block';
+  logBox.innerHTML += `<div class="${cls}">${msg}</div>`;
+  logBox.scrollTop = logBox.scrollHeight;
+}
+function clearLog() { logBox.innerHTML = ''; logBox.style.display = 'none'; }
+
+// ── 수정 함수들 ───────────────────────────────────────
+const ENTITY_MAP = {
+  '&nbsp;':'&#160;','&ensp;':'&#8194;','&emsp;':'&#8195;','&thinsp;':'&#8201;',
+  '&ndash;':'&#8211;','&mdash;':'&#8212;','&lsquo;':'&#8216;','&rsquo;':'&#8217;',
+  '&sbquo;':'&#8218;','&ldquo;':'&#8220;','&rdquo;':'&#8221;','&bdquo;':'&#8222;',
+  '&dagger;':'&#8224;','&Dagger;':'&#8225;','&permil;':'&#8240;','&lsaquo;':'&#8249;',
+  '&rsaquo;':'&#8250;','&hellip;':'&#8230;','&bull;':'&#8226;','&prime;':'&#8242;',
+  '&Prime;':'&#8243;','&trade;':'&#8482;','&copy;':'&#169;','&reg;':'&#174;',
+  '&cent;':'&#162;','&pound;':'&#163;','&yen;':'&#165;','&sect;':'&#167;',
+  '&deg;':'&#176;','&plusmn;':'&#177;','&micro;':'&#181;','&middot;':'&#183;',
+  '&frac14;':'&#188;','&frac12;':'&#189;','&frac34;':'&#190;',
+  '&times;':'&#215;','&divide;':'&#247;','&minus;':'&#8722;',
+  '&larr;':'&#8592;','&rarr;':'&#8594;','&harr;':'&#8596;',
+  '&laquo;':'&#171;','&raquo;':'&#187;','&iquest;':'&#191;','&iexcl;':'&#161;',
+  '&acute;':'&#180;','&uml;':'&#168;','&cedil;':'&#184;','&shy;':'&#173;',
+  '&not;':'&#172;','&brvbar;':'&#166;','&para;':'&#182;','&ordf;':'&#170;',
+  '&ordm;':'&#186;','&sup1;':'&#185;','&sup2;':'&#178;','&sup3;':'&#179;',
+  '&infin;':'&#8734;','&sum;':'&#8721;','&prod;':'&#8719;','&ne;':'&#8800;',
+  '&le;':'&#8804;','&ge;':'&#8805;','&asymp;':'&#8776;','&equiv;':'&#8801;',
+  '&sub;':'&#8834;','&sup;':'&#8835;','&and;':'&#8743;','&or;':'&#8744;',
+  '&oplus;':'&#8853;','&otimes;':'&#8855;','&int;':'&#8747;','&radic;':'&#8730;',
+  '&prop;':'&#8733;','&ang;':'&#8736;','&cap;':'&#8745;','&cup;':'&#8746;',
+  '&there4;':'&#8756;','&sim;':'&#8764;','&cong;':'&#8773;','&perp;':'&#8869;',
+  '&sdot;':'&#8901;','&forall;':'&#8704;','&part;':'&#8706;','&exist;':'&#8707;',
+  '&empty;':'&#8709;','&nabla;':'&#8711;','&isin;':'&#8712;','&notin;':'&#8713;',
+  '&loz;':'&#9674;','&spades;':'&#9824;','&clubs;':'&#9827;','&hearts;':'&#9829;',
+  '&diams;':'&#9830;','&bull;':'&#8226;','&hellip;':'&#8230;',
+};
+
+function fixEntities(src) {
+  let result = src;
+  let count = 0;
+  for (const [entity, rep] of Object.entries(ENTITY_MAP)) {
+    const re = new RegExp(entity.replace(';','\\;').replace('&','\\&'), 'g');
+    const before = result;
+    result = result.split(entity).join(rep);
+    if (result !== before) count++;
+  }
+  return { text: result, count };
+}
+
+function fixVoidTags(src) {
+  let result = src;
+  let count = 0;
+  const before = result;
+  result = result.replace(/<br(\s*)>/gi, '<br$1/>');
+  result = result.replace(/<hr(\s*)>/gi, '<hr$1/>');
+  result = result.replace(/<img([^>]*)(?<!\/)>/gi, (m, a) => '<img' + a + '/>');
+  result = result.replace(/<input([^>]*)(?<!\/)>/gi, (m, a) => '<input' + a + '/>');
+  result = result.replace(/<meta([^>]*)(?<!\/)>/gi, (m, a) => '<meta' + a + '/>');
+  result = result.replace(/<link([^>]*)(?<!\/)>/gi, (m, a) => '<link' + a + '/>');
+  if (result !== before) count++;
+  return { text: result, count };
+}
+
+function fixAngleBrackets(src) {
+  let count = 0;
+  const result = src.replace(/<([^<>\n]{1,300})>/g, (match, inner) => {
+    if (/^[?!]/.test(inner)) return match;
+    if (/^\/[a-zA-Z_:][a-zA-Z0-9_:\-\.]*/.test(inner)) return match;
+    if (/^[a-z_:][a-zA-Z0-9_:\-\.]*[\s\/]/.test(inner)) return match;
+    if (/^[a-z_:][a-zA-Z0-9_:\-\.]*$/.test(inner)) return match;
+    if (/[\uAC00-\uD7A3\uFF00-\uFFEF\u4E00-\u9FFF]/.test(inner)) { count++; return '&lt;' + inner + '&gt;'; }
+    if (/\s/.test(inner) || /\./.test(inner)) { count++; return '&lt;' + inner + '&gt;'; }
+    if (/^[A-Z]/.test(inner)) { count++; return '&lt;' + inner + '&gt;'; }
+    return match;
+  });
+  return { text: result, count };
+}
+
+function fixEncoding(src) {
+  if (src.trimStart().startsWith('<?xml')) return { text: src, count: 0 };
+  const fixed = '<?xml version="1.0" encoding="utf-8"?>\n' + src;
+  return { text: fixed, count: 1 };
+}
+
+// ── 메인 처리 ─────────────────────────────────────────
+async function runFixer() {
+  const btn = document.getElementById('btnRun');
+  const dlArea = document.getElementById('dlArea');
+  clearLog();
+  dlArea.style.display = 'none';
+  dlArea.innerHTML = '';
+  btn.disabled = true;
+  btn.textContent = '처리 중...';
+
+  const optEntity = document.getElementById('optEntity').checked;
+  const optVoid   = document.getElementById('optVoidTag').checked;
+  const optAngle  = document.getElementById('optAngleBracket').checked;
+  const optEnc    = document.getElementById('optEncoding').checked;
+
+  const results = [];
+
+  for (const file of files) {
+    log(`▶ <b>${escHtml(file.name)}</b> 처리 중...`);
+    try {
+      const buf = await file.arrayBuffer();
+      const zip = await JSZip.loadAsync(buf);
+
+      // xhtml 파일 목록
+      const xhtmlEntries = Object.keys(zip.files).filter(n =>
+        /\.(x?html?)$/i.test(n) && !zip.files[n].dir
+      );
+
+      let totalFixes = 0;
+      let fileFixed = 0;
+
+      for (const name of xhtmlEntries) {
+        let src = await zip.files[name].async('string');
+        let changed = false;
+        const fixes = [];
+
+        if (optEntity) {
+          const r = fixEntities(src);
+          if (r.count > 0) { src = r.text; changed = true; fixes.push(`엔티티 ${r.count}종`); }
+        }
+        if (optVoid) {
+          const r = fixVoidTags(src);
+          if (r.count > 0) { src = r.text; changed = true; fixes.push(`닫힘태그`); }
+        }
+        if (optAngle) {
+          const r = fixAngleBrackets(src);
+          if (r.count > 0) { src = r.text; changed = true; fixes.push(`꺾쇠 ${r.count}곳`); }
+        }
+        if (optEnc) {
+          const r = fixEncoding(src);
+          if (r.count > 0) { src = r.text; changed = true; fixes.push(`인코딩 선언`); }
+        }
+
+        if (changed) {
+          zip.file(name, src);
+          fileFixed++;
+          totalFixes++;
+          const shortName = name.split('/').pop();
+          log(`  ✓ ${escHtml(shortName)} — ${fixes.join(', ')}`, 'log-ok');
+        }
+      }
+
+      if (totalFixes === 0) {
+        log(`  ✨ 수정할 오류 없음`, 'log-info');
+      } else {
+        log(`  → <b>${fileFixed}개 파일</b> 수정 완료`, 'log-ok');
+      }
+
+      // 출력 파일명
+      const baseName = file.name.replace(/\.epub$/i, '');
+      const outName = baseName + '_수정완료.epub';
+
+      // 재패킹
+      const mimetypeFile = zip.files['mimetype'];
+      const newZip = new JSZip();
+      newZip.file('mimetype', mimetypeFile ? await mimetypeFile.async('string') : 'application/epub+zip', { compression: 'STORE' });
+      for (const [name2, entry] of Object.entries(zip.files)) {
+        if (name2 === 'mimetype' || entry.dir) continue;
+        const data = await entry.async('uint8array');
+        newZip.file(name2, data);
+      }
+
+      const outBlob = await newZip.generateAsync({ type: 'blob', mimeType: 'application/epub+zip' });
+      results.push({ name: outName, blob: outBlob, fixed: totalFixes });
+
+    } catch (e) {
+      log(`  ✕ 오류: ${e.message}`, 'log-err');
+    }
+    log('');
+  }
+
+  // 다운로드 버튼
+  if (results.length > 0) {
+    dlArea.style.display = 'block';
+    results.forEach(r => {
+      const badge = r.fixed > 0
+        ? `<span class="result-badge badge-fixed">${r.fixed}곳 수정</span>`
+        : `<span class="result-badge badge-clean">이상없음</span>`;
+      const btn2 = document.createElement('div');
+      btn2.className = 'dl-btn';
+      btn2.innerHTML = `⬇️ ${escHtml(r.name)} ${badge}`;
+      btn2.onclick = () => saveAs(r.blob, r.name);
+      dlArea.appendChild(btn2);
+    });
+  }
+
+  btn.disabled = false;
+  btn.textContent = `🔧 ${files.length}개 파일 수정 시작`;
+}
+</script>
