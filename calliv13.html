@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>캘리 v10</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root{--p:#7c6ab5;--p2:#a99fd8;--bg:#13111e;--card:#1c1a2e;--card2:#252340;--tx:#e4e0f5;--tx2:#a8a0cc;--bd:#3a3560;--r:10px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--tx);height:100vh;overflow:hidden;display:flex;flex-direction:column;font-size:14px;}
+
+#ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:none;}
+#ov.show{display:block;}
+
+#sideL{position:fixed;left:-290px;top:0;bottom:0;width:285px;background:var(--card);z-index:600;transition:left .22s;display:flex;flex-direction:column;border-right:1px solid var(--bd);}
+#sideL.open{left:0;}
+#sideR{position:fixed;right:-215px;top:0;bottom:0;width:210px;background:var(--card);z-index:600;transition:right .22s;display:flex;flex-direction:column;border-left:1px solid var(--bd);}
+#sideR.open{right:0;}
+
+.ph{padding:12px 14px;background:linear-gradient(135deg,#5c4d9a,#7c6ab5);color:#fff;display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;flex-shrink:0;}
+.px{background:none;border:none;color:#fff;font-size:18px;cursor:pointer;padding:2px 5px;}
+.pb{flex:1;overflow-y:auto;padding:10px 11px;}
+
+.bpb{display:block;width:100%;padding:8px 9px;border-radius:7px;border:1px solid var(--bd);background:var(--card2);font-size:12px;font-weight:600;cursor:pointer;text-align:left;margin-bottom:3px;color:var(--tx);line-height:1.3;}
+.bpb small{display:block;font-size:10px;color:var(--tx2);font-weight:400;margin-top:1px;}
+.bpb:active{background:rgba(124,106,181,.25);border-color:var(--p);}
+
+.acc{border:1px solid var(--bd);border-radius:8px;margin-bottom:7px;overflow:hidden;}
+.ach{display:flex;align-items:center;justify-content:space-between;padding:9px 11px;background:var(--card2);cursor:pointer;font-size:12px;font-weight:600;color:var(--p2);user-select:none;}
+.ach .ar{transition:transform .18s;font-size:10px;}
+.ach.open .ar{transform:rotate(180deg);}
+.acb{padding:10px;display:none;background:var(--card);}
+.acb.open{display:block;}
+
+.sg{border:1px solid var(--bd);border-radius:8px;margin-bottom:7px;overflow:hidden;}
+.sgh{padding:9px 11px;background:var(--card2);font-size:12px;font-weight:700;display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;color:var(--tx);}
+.sgb{display:none;padding:10px;}
+.sgb.open{display:block;}
+
+#topbar{background:var(--card);border-bottom:1px solid var(--bd);padding:8px 11px 0;flex-shrink:0;}
+#tr1{display:flex;align-items:center;gap:7px;margin-bottom:8px;}
+.tb{background:var(--card2);color:var(--p2);border:1px solid var(--bd);border-radius:8px;padding:7px 10px;font-size:15px;cursor:pointer;flex-shrink:0;line-height:1;}
+.tb:active{background:rgba(124,106,181,.3);}
+#tbf{font-size:11px;color:var(--tx2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#tbopen{background:linear-gradient(135deg,#5c4d9a,#7c6ab5);color:#fff;border:none;border-radius:20px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;}
+.tab-bar{display:flex;overflow-x:auto;scrollbar-width:none;}
+.tab-bar::-webkit-scrollbar{display:none;}
+.tab-btn{flex-shrink:0;padding:9px 13px;border:none;background:transparent;color:var(--tx2);font-size:12px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;}
+.tab-btn.active{color:var(--p2);border-bottom-color:var(--p);}
+.tab-btn:disabled{opacity:.3;cursor:not-allowed;}
+
+#sb{background:var(--card);border-bottom:1px solid var(--bd);padding:7px 10px;display:none;flex-shrink:0;align-items:center;gap:5px;}
+#sb.show{display:flex;}
+.sc{flex:1;padding:9px 4px;border-radius:8px;border:none;color:#fff;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;}
+.sc:active{opacity:.85;}
+#brem{flex:0 0 auto;padding:9px 10px;border-radius:8px;border:1.5px solid var(--bd);background:transparent;color:var(--tx2);font-size:12px;font-weight:700;cursor:pointer;}
+#bcfg{background:var(--card2);color:var(--p2);border:1px solid var(--bd);border-radius:8px;padding:9px;font-size:13px;cursor:pointer;flex-shrink:0;}
+#bblk{background:linear-gradient(135deg,#5c4d9a,#7c6ab5);color:#fff;border:none;border-radius:8px;padding:9px;font-size:13px;cursor:pointer;flex-shrink:0;}
+
+#undoBar{background:var(--card);border-bottom:1px solid var(--bd);padding:5px 10px;display:none;flex-shrink:0;align-items:center;gap:5px;}
+#undoBar.show{display:flex;}
+.ubtn{flex:1;padding:7px 5px;border-radius:7px;border:1px solid var(--bd);background:var(--card2);color:var(--tx2);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;}
+.ubtn:disabled{opacity:.3;cursor:not-allowed;}
+.ubtn:not(:disabled):active{background:rgba(124,106,181,.25);border-color:var(--p);}
+
+#alignBar{background:var(--card);border-bottom:1px solid var(--bd);padding:5px 10px;display:none;flex-shrink:0;align-items:center;gap:4px;}
+#alignBar.show{display:flex;}
+.albtn{flex:1;padding:7px 3px;border-radius:7px;border:1px solid var(--bd);background:var(--card2);color:var(--tx2);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.albtn.active{background:rgba(124,106,181,.3);border-color:var(--p);color:var(--p2);}
+.alsep{width:1px;height:22px;background:var(--bd);flex-shrink:0;}
+
+#main{flex:1;overflow-y:auto;padding:11px;}
+.tc{display:none;}
+.tc.active{display:block;}
+.card{background:var(--card);border-radius:var(--r);padding:12px;margin-bottom:10px;border:1px solid var(--bd);}
+.ct{font-size:12px;font-weight:700;color:var(--p2);margin-bottom:8px;}
+.btn{display:block;width:100%;background:linear-gradient(135deg,#5c4d9a,#7c6ab5);color:#fff;border:none;padding:12px;border-radius:var(--r);font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;}
+.bsm{display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:8px 12px;border-radius:7px;background:linear-gradient(135deg,#5c4d9a,#7c6ab5);color:#fff;border:none;font-size:12px;font-weight:600;cursor:pointer;}
+.bsm.g{background:transparent;color:var(--p2);border:1.5px solid var(--bd);}
+.brow{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.brow .bsm{flex:1;}
+
+label{display:block;font-size:11px;color:var(--tx2);margin-bottom:3px;margin-top:9px;}
+label:first-child{margin-top:0;}
+input[type=text],select,textarea{width:100%;padding:9px 10px;border:1px solid var(--bd);border-radius:7px;font-size:13px;background:var(--card2);color:var(--tx);}
+input[type=text]:focus,select:focus,textarea:focus{outline:none;border-color:var(--p);}
+input[type=color]{width:100%;height:38px;padding:2px 5px;border:1px solid var(--bd);border-radius:7px;cursor:pointer;background:var(--card2);}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;}
+
+.tl{max-height:50vh;overflow-y:auto;}
+.ti{display:flex;align-items:center;gap:5px;padding:6px 8px;border:1px solid var(--bd);border-radius:7px;margin-bottom:4px;background:var(--card2);}
+.ti input{flex:1;padding:5px 7px;font-size:12px;margin:0;border:none;background:transparent;color:var(--tx);}
+.tib{display:flex;gap:3px;flex-shrink:0;}
+.tib button{width:24px;height:24px;border:none;border-radius:5px;background:var(--card);color:var(--tx2);font-size:10px;cursor:pointer;border:1px solid var(--bd);}
+.tib button:last-child{background:rgba(220,80,80,.2);color:#f87171;border-color:rgba(220,80,80,.3);}
+
+#pv{border:2px dashed var(--bd);border-radius:9px;padding:11px;min-height:120px;font-size:14px;line-height:1.8;background:#fff;color:#333;margin:7px 0;outline:none;max-height:55vh;overflow-y:auto;}
+
+#dpop{position:fixed;z-index:700;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:12px;box-shadow:0 4px 18px rgba(0,0,0,.4);display:none;width:160px;}
+#dpop.show{display:block;}
+#dpop .dpt{font-size:11px;color:var(--tx2);margin-bottom:8px;}
+#dpop .dedt{width:100%;padding:9px;background:rgba(124,106,181,.2);color:var(--p2);border:1px solid var(--p);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:6px;}
+#dpop .ddel{width:100%;padding:9px;background:rgba(220,80,80,.2);color:#f87171;border:1px solid rgba(220,80,80,.3);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;}
+#dpop-x{position:absolute;top:7px;right:8px;background:none;border:none;font-size:14px;color:var(--tx2);cursor:pointer;}
+
+.mbg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:800;display:flex;align-items:flex-end;}
+.mbg.hidden{display:none;}
+.ms{background:var(--card);border-radius:18px 18px 0 0;padding:15px 13px 26px;width:100%;max-height:78vh;overflow-y:auto;border-top:1px solid var(--bd);}
+.mt{font-size:14px;font-weight:700;color:var(--p2);margin-bottom:12px;text-align:center;}
+
+.grad-target-label{font-size:10px;color:var(--p2);margin-bottom:4px;font-weight:600;}
+.grad-target-row{display:flex;gap:6px;margin-bottom:8px;}
+.grad-target-btn{flex:1;padding:7px 5px;border-radius:7px;border:2px solid var(--bd);font-size:11px;font-weight:700;cursor:pointer;background:var(--card2);color:var(--tx2);}
+.grad-target-btn.sel{border-color:var(--p);color:var(--p2);background:rgba(124,106,181,.2);}
+
+#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(124,106,181,.95);color:#fff;padding:10px 20px;border-radius:50px;font-size:13px;font-weight:600;z-index:900;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap;}
+#toast.show{opacity:1;}
+
+.hidden{display:none!important;}
+</style>
+</head>
+<body>
+<input type="file" id="epubInput" accept=".epub" class="hidden">
+<div id="ov" onclick="closeAll()"></div>
+
+<!-- 왼쪽: 씬 설정 -->
+<div id="sideL">
+  <div class="ph">⚙️ 씬 스타일 설정<button class="px" onclick="closeSide()">✕</button></div>
+  <div class="pb">
+    <div class="sg">
+      <div class="sgh" onclick="tsg(this)"><span id="dM" style="width:12px;height:12px;border-radius:50%;background:#888;display:inline-block;flex-shrink:0;"></span>🌫 회상 씬</div>
+      <div class="sgb">
+        <div class="g2">
+          <div><label>글자색</label><input type="color" id="mC" value="#888888" oninput="us('memory','color',this.value)"></div>
+          <div><label>글자 뒤 배경</label><input type="color" id="mB" value="#ffffff" oninput="us('memory','bg',this.value)"></div>
+        </div>
+        <div class="g3" style="margin-top:6px;">
+          <div><label>굵기</label><select id="mW" onchange="us('memory','bold',this.value)"><option value="normal">보통</option><option value="bold">굵게</option></select></div>
+          <div><label>기울임</label><select id="mI" onchange="us('memory','italic',this.value)"><option value="italic" selected>켜짐</option><option value="normal">꺼짐</option></select></div>
+          <div><label>크기</label><input type="text" id="mS" placeholder="기본" oninput="us('memory','size',this.value)" style="padding:7px;font-size:12px;"></div>
+        </div>
+        <div style="margin-top:8px;">
+          <div class="grad-target-label">그라디언트 적용 대상</div>
+          <div class="grad-target-row">
+            <button class="grad-target-btn sel" id="gtM_color" onclick="setGradTarget('memory','color')">단색</button>
+            <button class="grad-target-btn" id="gtM_grad" onclick="setGradTarget('memory','grad')">그라디언트</button>
+          </div>
+          <div id="gM" style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:3px;"></div>
+          <button onclick="applySceneToAll('memory')" style="width:100%;margin-top:8px;padding:8px;border-radius:7px;border:1px solid var(--p);background:rgba(124,106,181,.15);color:var(--p2);font-size:12px;font-weight:700;cursor:pointer;">↺ 회상 씬 전체 업데이트</button>
+        </div>
+      </div>
+    </div>
+    <div class="sg">
+      <div class="sgh" onclick="tsg(this)"><span id="dN" style="width:12px;height:12px;border-radius:50%;background:#5c6bc0;display:inline-block;flex-shrink:0;"></span>💭 독백 씬</div>
+      <div class="sgb">
+        <div class="g2">
+          <div><label>글자색</label><input type="color" id="nC" value="#5c6bc0" oninput="us('mono','color',this.value)"></div>
+          <div><label>글자 뒤 배경</label><input type="color" id="nB" value="#ffffff" oninput="us('mono','bg',this.value)"></div>
+        </div>
+        <div class="g3" style="margin-top:6px;">
+          <div><label>굵기</label><select id="nW" onchange="us('mono','bold',this.value)"><option value="bold" selected>굵게</option><option value="normal">보통</option></select></div>
+          <div><label>기울임</label><select id="nI" onchange="us('mono','italic',this.value)"><option value="normal" selected>꺼짐</option><option value="italic">켜짐</option></select></div>
+          <div><label>크기</label><input type="text" id="nS" placeholder="기본" oninput="us('mono','size',this.value)" style="padding:7px;font-size:12px;"></div>
+        </div>
+        <div style="margin-top:8px;">
+          <div class="grad-target-label">그라디언트 적용 대상</div>
+          <div class="grad-target-row">
+            <button class="grad-target-btn sel" id="gtN_color" onclick="setGradTarget('mono','color')">단색</button>
+            <button class="grad-target-btn" id="gtN_grad" onclick="setGradTarget('mono','grad')">그라디언트</button>
+          </div>
+          <div id="gN" style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:3px;"></div>
+          <button onclick="applySceneToAll('mono')" style="width:100%;margin-top:8px;padding:8px;border-radius:7px;border:1px solid var(--p);background:rgba(124,106,181,.15);color:var(--p2);font-size:12px;font-weight:700;cursor:pointer;">↺ 독백 씬 전체 업데이트</button>
+        </div>
+      </div>
+    </div>
+    <div class="sg">
+      <div class="sgh" onclick="tsg(this)"><span id="dE" style="width:12px;height:12px;border-radius:50%;background:#e91e63;display:inline-block;flex-shrink:0;"></span>✨ 강조 씬</div>
+      <div class="sgb">
+        <div class="g2">
+          <div><label>글자색</label><input type="color" id="eC" value="#e91e63" oninput="us('emph','color',this.value)"></div>
+          <div><label>글자 뒤 배경</label><input type="color" id="eB" value="#ffffff" oninput="us('emph','bg',this.value)"></div>
+        </div>
+        <div class="g3" style="margin-top:6px;">
+          <div><label>굵기</label><select id="eW" onchange="us('emph','bold',this.value)"><option value="bold" selected>굵게</option><option value="normal">보통</option></select></div>
+          <div><label>기울임</label><select id="eI" onchange="us('emph','italic',this.value)"><option value="normal" selected>꺼짐</option><option value="italic">켜짐</option></select></div>
+          <div><label>크기</label><input type="text" id="eS" placeholder="기본" oninput="us('emph','size',this.value)" style="padding:7px;font-size:12px;"></div>
+        </div>
+        <div style="margin-top:8px;">
+          <div class="grad-target-label">그라디언트 적용 대상</div>
+          <div class="grad-target-row">
+            <button class="grad-target-btn sel" id="gtE_color" onclick="setGradTarget('emph','color')">단색</button>
+            <button class="grad-target-btn" id="gtE_grad" onclick="setGradTarget('emph','grad')">그라디언트</button>
+          </div>
+          <div id="gE" style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:3px;"></div>
+          <button onclick="applySceneToAll('emph')" style="width:100%;margin-top:8px;padding:8px;border-radius:7px;border:1px solid var(--p);background:rgba(124,106,181,.15);color:var(--p2);font-size:12px;font-weight:700;cursor:pointer;">↺ 강조 씬 전체 업데이트</button>
+        </div>
+      </div>
+    <div class="sg">
+      <div class="sgh" onclick="tsg(this)">✦ 장식선</div>
+      <div class="sgb">
+        <div style="font-size:10px;color:var(--tx2);margin-bottom:6px;">클릭하면 클립보드에 복사됩니다</div>
+        <div id="decoLines" style="display:flex;flex-direction:column;gap:4px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 오른쪽: 블록 패널 -->
+<div id="sideR">
+  <div class="ph">📦 블록 삽입<button class="px" onclick="closeBlock()">✕</button></div>
+  <div class="pb">
+    <div class="acc"><div class="ach open" onclick="tacc(this)">💬 메신저 <span class="ar">▼</span></div>
+      <div class="acb open">
+        <button class="bpb" onclick="openKakaoListModal()">💛 카톡 채팅방 목록</button>
+        <button class="bpb" onclick="openKakaoModal()">💬 카톡 대화창 래퍼</button>
+        <button class="bpb" onclick="ib('kakao_recv')">◀ 받은 카톡</button>
+        <button class="bpb" onclick="ib('kakao_sent')">▶ 보낸 카톡</button>
+        <button class="bpb" onclick="ib('kakao_date')">📅 날짜 구분선</button>
+        <button class="bpb" onclick="ib('bubble')">🫧 버블(Bubble)</button>
+      </div>
+    </div>
+    <div class="acc"><div class="ach" onclick="tacc(this)">📱 SNS <span class="ar">▼</span></div>
+      <div class="acb">
+        <button class="bpb" onclick="ib('twitter')">🐦 트위터 게시글</button>
+        <button class="bpb" onclick="ib('twitter_bundle')">🐦 트위터 통합<small>게시글+댓글</small></button>
+        <button class="bpb" onclick="ib('twitter_rt')">🔁 트위터 인용RT</button>
+        <button class="bpb" onclick="ib('insta')">📸 인스타 DM</button>
+        <button class="bpb" onclick="ib('insta_feed')">📸 인스타 피드</button>
+        <button class="bpb" onclick="ib('youtube')">▶ 유튜브 댓글</button>
+        <button class="bpb" onclick="ib('weverse')">💚 위버스</button>
+      </div>
+    </div>
+    <div class="acc"><div class="ach" onclick="tacc(this)">📦 박스/블록 <span class="ar">▼</span></div>
+      <div class="acb">
+        <button class="bpb" onclick="openCommModal()">📋 커뮤 통합<small>색상 선택</small></button>
+        <button class="bpb" onclick="ib('noti')">🔔 앱 알림 (카드형)</button>
+        <button class="bpb" onclick="ib('noti2')">📱 앱 알림 (SMS형)<small>제목+본문+예/아니오</small></button>
+        <button class="bpb" onclick="ib('system_h')">🖥 시스템 메시지 (가로)</button>
+        <button class="bpb" onclick="ib('system_v')">📋 시스템 메시지 (세로)<small>SYSTEM 박스 세로형</small></button>
+      </div>
+    </div>
+    <div class="acc"><div class="ach" onclick="tacc(this)">📺 앱 화면 <span class="ar">▼</span></div>
+      <div class="acb">
+      </div>
+    </div>
+    <div class="acc"><div class="ach" onclick="tacc(this)">✂ 글자 효과 <span class="ar">▼</span></div>
+      <div class="acb">
+        <button class="bpb" onclick="openStrikeModal()">취소선<small>검정/빨강 선택</small></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 헤더 -->
+<div id="topbar">
+  <div id="tr1">
+    <button class="tb" onclick="openSide()">☰</button>
+    <div id="tbf">파일을 열어주세요</div>
+    <button class="tb" id="btnBlk" onclick="toggleBlock()">📦</button>
+    <button id="tbopen" onclick="document.getElementById('epubInput').click()">📂 열기</button>
+  </div>
+  <div class="tab-bar">
+    <button class="tab-btn" id="tToc" disabled onclick="sw('tocTab')">📖 목차</button>
+    <button class="tab-btn" id="tEdit" disabled onclick="sw('editTab')">✏️ 본문 편집</button>
+  </div>
+</div>
+
+<!-- 씬 바 -->
+<div id="sb">
+  <button class="sc" id="bM" style="background:#888;" onclick="applyScene('memory')">🌫 회상</button>
+  <button class="sc" id="bN" style="background:#5c6bc0;" onclick="applyScene('mono')">💭 독백</button>
+  <button class="sc" id="bE" style="background:#e91e63;" onclick="applyScene('emph')">✨ 강조</button>
+  <button id="brem" onclick="removeScene()">제거</button>
+  <button id="bcfg" onclick="openSide()">⚙️</button>
+  <button id="bblk" onclick="toggleBlock()">📦</button>
+</div>
+
+<!-- 실행취소/다시실행 -->
+<div id="undoBar">
+  <button class="ubtn" id="btnUndo" onclick="doUndo()" disabled>↶ 취소</button>
+  <button class="ubtn" id="btnRedo" onclick="doRedo()" disabled>↷ 다시</button>
+</div>
+
+<!-- 정렬 바 -->
+<div id="alignBar">
+  <button class="albtn" title="왼쪽" onclick="doAlign('left')" style="flex-direction:column;gap:2px;">
+    <span style="width:14px;height:2px;background:currentColor;border-radius:1px;display:block;align-self:flex-start;"></span>
+    <span style="width:18px;height:2px;background:currentColor;border-radius:1px;display:block;align-self:flex-start;"></span>
+    <span style="width:11px;height:2px;background:currentColor;border-radius:1px;display:block;align-self:flex-start;"></span>
+  </button>
+  <button class="albtn" title="가운데" onclick="doAlign('center')" style="flex-direction:column;gap:2px;">
+    <span style="width:14px;height:2px;background:currentColor;border-radius:1px;display:block;margin:0 auto;"></span>
+    <span style="width:18px;height:2px;background:currentColor;border-radius:1px;display:block;margin:0 auto;"></span>
+    <span style="width:11px;height:2px;background:currentColor;border-radius:1px;display:block;margin:0 auto;"></span>
+  </button>
+  <button class="albtn" title="오른쪽" onclick="doAlign('right')" style="flex-direction:column;gap:2px;">
+    <span style="width:14px;height:2px;background:currentColor;border-radius:1px;display:block;align-self:flex-end;"></span>
+    <span style="width:18px;height:2px;background:currentColor;border-radius:1px;display:block;align-self:flex-end;"></span>
+    <span style="width:11px;height:2px;background:currentColor;border-radius:1px;display:block;align-self:flex-end;"></span>
+  </button>
+  <button class="albtn" title="양쪽" onclick="doAlign('justify')" style="flex-direction:column;gap:2px;">
+    <span style="width:18px;height:2px;background:currentColor;border-radius:1px;display:block;"></span>
+    <span style="width:18px;height:2px;background:currentColor;border-radius:1px;display:block;"></span>
+    <span style="width:18px;height:2px;background:currentColor;border-radius:1px;display:block;"></span>
+  </button>
+  <div class="alsep"></div>
+  <button class="albtn" title="들여쓰기 없음" onclick="doIndent(false)" style="font-size:11px;">⊘</button>
+  <button class="albtn" title="들여쓰기" onclick="doIndent(true)" style="font-size:11px;">↦</button>
+</div>
+
+<div id="main">
+<!-- 목차 탭 -->
+<div id="tocTab" class="tc">
+  <div id="ic" class="card hidden"><div id="ib2" style="font-size:12px;color:var(--tx2);"></div></div>
+  <div class="card">
+    <div class="brow" style="margin:0;">
+      <button class="bsm" style="flex:2;" onclick="openTocM()">📋 자동 매핑</button>
+      <button class="bsm g" onclick="saveToc()">임시 저장</button>
+    </div>
+  </div>
+  <div class="acc"><div class="ach" onclick="tacc(this)">⚡ 일괄 찾기/바꾸기 <span class="ar">▼</span></div>
+    <div class="acb">
+      <label>찾을 문자</label><input type="text" id="ft">
+      <label>바꿀 문자</label><input type="text" id="rt" placeholder="비워두면 삭제">
+      <div class="brow"><button class="bsm g" onclick="prvRep()">미리보기</button><button class="bsm" onclick="doRep()">전체 적용</button></div>
+    </div>
+  </div>
+  <div class="card"><div class="tl" id="tl"></div><button class="bsm g" style="margin-top:7px;width:100%;" onclick="addToc()">+ 항목 추가</button></div>
+</div>
+
+<!-- 본문 편집 탭 -->
+<div id="editTab" class="tc">
+  <div class="card">
+    <label>편집할 챕터</label>
+    <select id="cs" onchange="loadChap()"></select>
+    <div style="display:flex;gap:7px;margin-top:8px;">
+      <button class="bsm g" style="flex:1;" onclick="saveChap()">💾 이 챕터 저장</button>
+      <button class="bsm" style="flex:1;" onclick="saveEpub()">📦 최종 저장</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct">📄 본문 편집</div>
+    <div id="pv" contenteditable="true" oninput="onPvInput()">챕터를 선택하면 본문이 표시됩니다.</div>
+  </div>
+</div>
+</div>
+
+<div id="toast"></div>
+
+<!-- 삭제/편집 팝오버 -->
+<div id="dpop">
+  <button id="dpop-x" onclick="closeDpop()">✕</button>
+  <div class="dpt">블록 선택됨</div>
+  <button class="ddel" onclick="delBlock()">🗑 이 블록 삭제</button>
+</div>
+
+<!-- 목차 모달 -->
+<div id="tocModal" class="mbg hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="ms">
+    <div class="mt">목차 자동 매핑</div>
+    <label style="display:flex;align-items:center;gap:8px;padding:11px;border:1.5px solid var(--bd);border-radius:9px;margin-bottom:7px;cursor:pointer;font-size:13px;font-weight:600;color:var(--tx);background:var(--card2);"><input type="radio" name="tm" value="keep" checked style="accent-color:var(--p);width:16px;height:16px;"> 소제목 유지</label>
+    <label style="display:flex;align-items:center;gap:8px;padding:11px;border:1.5px solid var(--bd);border-radius:9px;margin-bottom:7px;cursor:pointer;font-size:13px;font-weight:600;color:var(--tx);background:var(--card2);"><input type="radio" name="tm" value="number" style="accent-color:var(--p);width:16px;height:16px;"> 화수만 표시</label>
+    <div class="brow" style="margin-top:12px;"><button class="bsm" style="flex:2;" onclick="doAutoToc()">적용</button><button class="bsm g" onclick="document.getElementById('tocModal').classList.add('hidden')">취소</button></div>
+  </div>
+</div>
+
+<!-- 카카오 배경 모달 -->
+<div id="kakaoModal" class="mbg hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="ms">
+    <div class="mt">카카오톡 대화창 배경색</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button class="kt-btn" data-bg="#b2c7d9" onclick="selKakao(this)" style="flex:1;padding:10px 6px;border-radius:8px;border:1.5px solid #b2c7d9;background:#b2c7d9;color:#fff;font-size:11px;font-weight:600;cursor:pointer;outline:2px solid var(--p);">기본</button>
+      <button class="kt-btn" data-bg="#ffd6e0" onclick="selKakao(this)" style="flex:1;padding:10px 6px;border-radius:8px;border:1.5px solid #ffd6e0;background:#ffd6e0;color:#c06080;font-size:11px;font-weight:600;cursor:pointer;">핑크</button>
+      <button class="kt-btn" data-bg="#e1d5f0" onclick="selKakao(this)" style="flex:1;padding:10px 6px;border-radius:8px;border:1.5px solid #e1d5f0;background:#e1d5f0;color:#7b5ea7;font-size:11px;font-weight:600;cursor:pointer;">라벤더</button>
+    </div>
+    <label>대화 상대 이름</label>
+    <input type="text" id="kakaoName" placeholder="이름" style="margin-bottom:12px;">
+    <div class="brow"><button class="bsm" style="flex:1;" onclick="insertKakaoWrap()">삽입</button><button class="bsm g" onclick="document.getElementById('kakaoModal').classList.add('hidden')">취소</button></div>
+  </div>
+</div>
+
+<!-- 카카오 목록 모달 -->
+<div id="kakaoListModal" class="mbg hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="ms">
+    <div class="mt">💛 카톡 채팅방 목록</div>
+    <label>배경 색상</label>
+    <div style="display:flex;gap:8px;margin:6px 0 14px;">
+      <button class="kl-bg-btn" onclick="selKlBg(this,'#fff')" style="flex:1;padding:10px 4px;border-radius:8px;border:2px solid var(--p);background:#fff;color:#333;font-size:11px;font-weight:600;cursor:pointer;">기본</button>
+      <button class="kl-bg-btn" onclick="selKlBg(this,'#fff0f5')" style="flex:1;padding:10px 4px;border-radius:8px;border:2px solid var(--bd);background:#fff0f5;color:#c06080;font-size:11px;font-weight:600;cursor:pointer;">핑크</button>
+      <button class="kl-bg-btn" onclick="selKlBg(this,'#f5f0ff')" style="flex:1;padding:10px 4px;border-radius:8px;border:2px solid var(--bd);background:#f5f0ff;color:#7c5cbf;font-size:11px;font-weight:600;cursor:pointer;">라벤더</button>
+    </div>
+    <div class="brow"><button class="bsm" style="flex:2;" onclick="insertKakaoList()">삽입</button><button class="bsm g" onclick="document.getElementById('kakaoListModal').classList.add('hidden')">취소</button></div>
+  </div>
+</div>
+
+<!-- 취소선 모달 -->
+<div id="strikeModal" class="mbg hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="ms">
+    <div class="mt">취소선</div>
+    <label>텍스트</label>
+    <input type="text" id="strike_text" placeholder="취소선 텍스트">
+    <label>색상</label>
+    <div style="display:flex;gap:8px;margin-top:6px;">
+      <button class="sk-btn" onclick="selSk(this,'#111')" style="flex:1;padding:10px;border-radius:7px;border:2px solid var(--p);background:#111;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">검정</button>
+      <button class="sk-btn" onclick="selSk(this,'#cc0000')" style="flex:1;padding:10px;border-radius:7px;border:2px solid var(--bd);background:#cc0000;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">빨강</button>
+    </div>
+    <div class="brow" style="margin-top:14px;"><button class="bsm" style="flex:2;" onclick="insertStrike()">삽입</button><button class="bsm g" onclick="document.getElementById('strikeModal').classList.add('hidden')">취소</button></div>
+  </div>
+</div>
+
+<!-- 커뮤 모달 -->
+<div id="commModal" class="mbg hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="ms">
+    <div class="mt">커뮤 통합 색상 선택</div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <button class="comm-theme-btn" data-bd="#ffafc1" data-hbg="#fff0f5" data-bg="#fff8fa" data-ac="#e07090" data-btn="#ffb6c1" onclick="selectCommTheme(this)" style="flex:1;padding:10px 6px;border-radius:8px;border:1.5px solid #ffafc1;background:#fff8fa;color:#e07090;font-size:12px;font-weight:600;cursor:pointer;">🌸 핑크</button>
+      <button class="comm-theme-btn" data-bd="#d9cde5" data-hbg="#ede4f5" data-bg="#faf8ff" data-ac="#7c6ab5" data-btn="#c4b5fd" onclick="selectCommTheme(this)" style="flex:1;padding:10px 6px;border-radius:8px;border:1.5px solid #d9cde5;background:#faf8ff;color:#7c6ab5;font-size:12px;font-weight:600;cursor:pointer;">💜 라벤더</button>
+      <button class="comm-theme-btn" data-bd="#D5D5D5" data-hbg="#f5f5f5" data-bg="#fff" data-ac="#555" data-btn="#e0e0e0" onclick="selectCommTheme(this)" style="flex:1;padding:10px 6px;border-radius:8px;border:1.5px solid #D5D5D5;background:#fff;color:#555;font-size:12px;font-weight:600;cursor:pointer;">⬜ 기본</button>
+    </div>
+    <div class="brow"><button class="bsm" style="flex:1;" onclick="insertComm()">삽입</button><button class="bsm g" onclick="document.getElementById('commModal').classList.add('hidden')">취소</button></div>
+  </div>
+</div>
+
+<script>
+/* ─── 전역 ─── */
+var zip=null,opfPath='',opfBase='',opfDoc=null,chapPath='';
+var D={title:'',author:'',files:[],toc:[],classCss:''};
+var fname='';
+var PR=new DOMParser();
+
+/* ─── 실행취소 ─── */
+var undoStack=[],redoStack=[],undoTimer=null;
+function snapUndo(){var pv=document.getElementById('pv');undoStack.push(pv.innerHTML);if(undoStack.length>50)undoStack.shift();redoStack=[];updateUndoBtns();}
+function onPvInput(){clearTimeout(undoTimer);undoTimer=setTimeout(snapUndo,600);}
+function doUndo(){if(undoStack.length<2)return;var pv=document.getElementById('pv');redoStack.push(undoStack.pop());pv.innerHTML=undoStack[undoStack.length-1]||'';rebind();updateUndoBtns();}
+function doRedo(){if(!redoStack.length)return;var pv=document.getElementById('pv');var s=redoStack.pop();undoStack.push(s);pv.innerHTML=s;rebind();updateUndoBtns();}
+function updateUndoBtns(){document.getElementById('btnUndo').disabled=undoStack.length<2;document.getElementById('btnRedo').disabled=!redoStack.length;}
+
+/* ─── 정렬 ─── */
+function doAlign(dir){document.execCommand('justify'+dir.charAt(0).toUpperCase()+dir.slice(1),false,null);}
+function doIndent(on){document.execCommand(on?'indent':'outdent',false,null);}
+
+/* ─── 패널 제어 ─── */
+function openSide(){document.getElementById('sideL').classList.add('open');document.getElementById('ov').classList.add('show');}
+function closeSide(){document.getElementById('sideL').classList.remove('open');if(!document.getElementById('sideR').classList.contains('open'))document.getElementById('ov').classList.remove('show');}
+function toggleBlock(){var r=document.getElementById('sideR');if(r.classList.contains('open')){closeBlock();}else{r.classList.add('open');document.getElementById('ov').classList.add('show');}}
+function closeBlock(){document.getElementById('sideR').classList.remove('open');if(!document.getElementById('sideL').classList.contains('open'))document.getElementById('ov').classList.remove('show');}
+function closeAll(){document.getElementById('sideL').classList.remove('open');document.getElementById('sideR').classList.remove('open');document.getElementById('ov').classList.remove('show');}
+function tsg(h){h.nextElementSibling.classList.toggle('open');}
+function tacc(h){h.classList.toggle('open');h.nextElementSibling.classList.toggle('open');}
+
+/* ─── 탭 ─── */
+var TM={tocTab:'tToc',editTab:'tEdit'};
+function sw(id){
+  document.querySelectorAll('.tc').forEach(function(e){e.classList.remove('active');});
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+  var el=document.getElementById(id);if(el)el.classList.add('active');
+  var t=TM[id];if(t)document.getElementById(t).classList.add('active');
+  var isEdit=id==='editTab';
+  document.getElementById('sb').classList.toggle('show',isEdit);
+  document.getElementById('undoBar').classList.toggle('show',isEdit);
+  document.getElementById('alignBar').classList.toggle('show',isEdit);
+}
+
+/* ─── 그라디언트 ─── */
+var GR={none:null,title:'linear-gradient(135deg,#d0ccfa,#addfe9,#dca0e3)',strawberry:'linear-gradient(180deg,#e8534a,#ffb5a7)',pink_coral:'linear-gradient(180deg,#f472b6,#e8534a)',lilac_pink:'linear-gradient(180deg,#c084fc,#f472b6)',cherry_lav:'linear-gradient(180deg,#ffb7c5,#c4b5fd)',rose_mint:'linear-gradient(180deg,#f472b6,#34d399,#a78bfa)',ocean:'linear-gradient(180deg,#4facfe,#00f2c3)',sunset:'linear-gradient(180deg,#fc5c7d,#6a3093)',indigo:'linear-gradient(180deg,#667eea,#764ba2)',lemon:'linear-gradient(180deg,#fde047,#a3e635)',peach:'linear-gradient(90deg,#fda4af,#fb7185,#c4b5fd)',rainbow:'linear-gradient(90deg,#ff6b6b,#ffd93d,#6bcb77,#4d96ff)'};
+var GL=[['none','단색'],['title','라벤더민트'],['strawberry','딸기크림'],['pink_coral','핑크코랄'],['lilac_pink','라일락핑크'],['cherry_lav','벚꽃라벤더'],['rose_mint','로즈민트'],['ocean','오션'],['sunset','선셋'],['indigo','인디고'],['lemon','레몬라임'],['peach','피치로즈'],['rainbow','🌈무지개']];
+var gradSel={memory:'none',mono:'none',emph:'none'};
+var SS={memory:{mode:'color',color:'#888888',bg:'#fff',grad:'none',bold:'normal',italic:'italic',size:''},mono:{mode:'color',color:'#5c6bc0',bg:'#fff',grad:'none',bold:'bold',italic:'normal',size:''},emph:{mode:'color',color:'#e91e63',bg:'#fff',grad:'none',bold:'bold',italic:'normal',size:''}};
+
+function buildGrads(){
+  var ids={memory:'gM',mono:'gN',emph:'gE'};
+  Object.entries(ids).forEach(function(e){
+    var t=e[0],wid=e[1];
+    var w=document.getElementById(wid);if(!w)return;w.innerHTML='';
+    GL.forEach(function(gl){
+      var k=gl[0],lb=gl[1];
+      var g=GR[k];var btn=document.createElement('button');
+      btn.dataset.key=k;btn.dataset.type=t;
+      btn.style.cssText='padding:5px 3px;border-radius:5px;cursor:pointer;border:1.5px solid transparent;font-size:10px;text-align:center;line-height:1.3;word-break:keep-all;width:100%;';
+      if(k==='none'){btn.style.background='rgba(124,106,181,.2)';btn.style.color='var(--p2)';btn.style.borderColor='var(--bd)';}
+      else if(g){btn.style.background=g;btn.style.webkitBackgroundClip='text';btn.style.backgroundClip='text';btn.style.webkitTextFillColor='transparent';btn.style.fontWeight='700';}
+      btn.textContent=lb;
+      btn.addEventListener('click',function(){setGrad(t,k);});
+      w.appendChild(btn);
+    });
+  });
+}
+
+var gradTargetMap={memory:'M',mono:'N',emph:'E'};
+function setGradTarget(type,mode){
+  SS[type].mode=mode;
+  var sfx=gradTargetMap[type];
+  ['color','grad'].forEach(function(m){
+    var el=document.getElementById('gt'+sfx+'_'+m);
+    if(el)el.classList.toggle('sel',m===mode);
+  });
+  syncB();
+}
+
+function getCSS(t){
+  var s=SS[t];var c='';
+  if(s.mode==='grad'&&GR[s.grad])c='background:'+GR[s.grad]+';-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;';
+  else c='color:'+s.color+'!important;';
+  return c+'background-color:'+s.bg+'!important;font-weight:'+s.bold+'!important;font-style:'+s.italic+'!important;'+(s.size?'font-size:'+s.size+'!important;':'');
+}
+
+function us(t,f,v){SS[t][f]=v;if(f==='color'){SS[t].mode='color';setGradTarget(t,'color');}syncB();}
+function setGrad(t,k){
+  gradSel[t]=k;
+  if(k==='none'){SS[t].mode='color';}else{SS[t].mode='grad';SS[t].grad=k;}
+  var sfx=gradTargetMap[t];
+  var mode=k==='none'?'color':'grad';
+  ['color','grad'].forEach(function(m){
+    var el=document.getElementById('gt'+sfx+'_'+m);
+    if(el)el.classList.toggle('sel',m===mode);
+  });
+  updateGradBtns(t);syncB();
+}
+function updateGradBtns(type){
+  var wid={memory:'gM',mono:'gN',emph:'gE'}[type];
+  var w=document.getElementById(wid);if(!w)return;
+  var cur=gradSel[type];
+  w.querySelectorAll('button').forEach(function(btn){
+    if(btn.dataset.key===cur){btn.style.borderColor='#fff';btn.style.outline='2px solid var(--p)';}
+    else{btn.style.outline='none';btn.style.borderColor=btn.dataset.key==='none'?'var(--bd)':'transparent';}
+  });
+}
+function syncB(){
+  var m={memory:['bM','dM'],mono:['bN','dN'],emph:['bE','dE']};
+  Object.entries(m).forEach(function(e){
+    var t=e[0],arr=e[1];
+    var bi=arr[0],di=arr[1];
+    var s=SS[t];var dc=s.mode==='grad'&&GR[s.grad]?GR[s.grad]:s.color;
+    var btn=document.getElementById(bi);if(btn)btn.style.background=dc;
+    var dot=document.getElementById(di);if(dot)dot.style.background=s.mode==='grad'?'linear-gradient(90deg,#f472b6,#a78bfa)':s.color;
+  });
+  D.classCss='.calli-memory{'+getCSS('memory')+'}.calli-mono{'+getCSS('mono')+'}.calli-emph{'+getCSS('emph')+'}';
+}
+
+/* ─── 엔터키 처리 및 병합 시 스타일 보존 로직 ─── */
+document.getElementById('pv').addEventListener('keydown', function(e) {
+  // Enter 입력 시 줄바꿈 1번 = <br> 1개만 삽입
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    document.execCommand('insertLineBreak');
+    snapUndo();
+    return;
+  }
+  
+  // Backspace/Delete 시 앞뒤 블록 병합으로 인한 인라인 스타일 유실(변질) 방지
+  if (e.key === 'Backspace' || e.key === 'Delete') {
+    var sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    var r = sel.getRangeAt(0);
+    
+    if (r.collapsed) {
+      var block = getBlockContainer(r.startContainer);
+      if (block && block.id !== 'pv') {
+        preserveBlockStyle(block);
+        
+        // 인접한 블록도 미리 스타일을 보존 처리
+        if (e.key === 'Backspace' && block.previousElementSibling) {
+          preserveBlockStyle(block.previousElementSibling);
+        } else if (e.key === 'Delete' && block.nextElementSibling) {
+          preserveBlockStyle(block.nextElementSibling);
+        }
+      }
+    }
+  }
+});
+
+// 상위 블록 요소를 찾는 헬퍼 함수
+function getBlockContainer(node) {
+  while (node && node.id !== 'pv') {
+    if (node.nodeType === 1) {
+      var d = window.getComputedStyle(node).display;
+      if (d === 'block' || d === 'flex' || d === 'grid' || d === 'list-item') return node;
+    }
+    node = node.parentNode;
+  }
+  return null;
+}
+
+// 블록 텍스트 병합 전, 블록의 인라인 스타일을 내부 span으로 감싸 보존하는 함수
+function preserveBlockStyle(block) {
+  if (!block || block.id === 'pv' || block.hasAttribute('data-styled')) return;
+  var s = block.style;
+  var hasStyle = s.fontSize || s.color || s.fontWeight || s.fontFamily || s.letterSpacing || s.fontStyle;
+  
+  if (hasStyle) {
+    var span = document.createElement('span');
+    if (s.fontSize) span.style.fontSize = s.fontSize;
+    if (s.color) span.style.color = s.color;
+    if (s.fontWeight) span.style.fontWeight = s.fontWeight;
+    if (s.fontFamily) span.style.fontFamily = s.fontFamily;
+    if (s.letterSpacing) span.style.letterSpacing = s.letterSpacing;
+    if (s.fontStyle) span.style.fontStyle = s.fontStyle;
+    
+    // 내부 텍스트 및 요소들을 생성한 span 안으로 이동
+    var childNodes = Array.from(block.childNodes);
+    childNodes.forEach(function(child) {
+      span.appendChild(child);
+    });
+    block.appendChild(span);
+    
+    // 블록 자체의 텍스트 관련 스타일 속성 제거 (병합 시 변질 방지)
+    s.fontSize = '';
+    s.color = '';
+    s.fontWeight = '';
+    s.fontFamily = '';
+    s.letterSpacing = '';
+    s.fontStyle = '';
+    
+    block.setAttribute('data-styled', 'true'); // 중복 실행 방지
+  }
+}
+
+/* ─── 씬 일괄 변경 ─── */
+function applySceneToAll(type){
+  var css=getCSS(type);var cn='calli-'+type;
+  document.querySelectorAll('#pv span.'+cn).forEach(function(sp){sp.style.cssText=css;});
+  toast(type+' 씬 전체 업데이트 완료');
+}
+
+/* ─── EPUB 열기 ─── */
+document.getElementById('epubInput').addEventListener('change',function(e){
+  var f=e.target.files[0];if(!f)return;
+  fname=f.name.replace(/\.epub$/i,'');
+  document.getElementById('tbf').textContent=f.name;
+  var r=new FileReader();
+  r.onload=function(ev){JSZip.loadAsync(ev.target.result).then(function(z){zip=z;analyze(z);}).catch(function(){alert('읽기 실패');});};
+  r.readAsArrayBuffer(f);
+});
+
+function analyze(z){
+  D={title:fname,author:'',files:[],toc:[],classCss:''};
+  try{
+    z.file('META-INF/container.xml').async('string').then(function(cx){
+      var cd=PR.parseFromString(cx,'application/xml');
+      opfPath=cd.querySelector('rootfile').getAttribute('full-path');
+      opfBase=opfPath.substring(0,opfPath.lastIndexOf('/')+1);
+      z.file(opfPath).async('string').then(function(ox){
+        opfDoc=PR.parseFromString(ox,'application/xml');
+        var cr=opfDoc.querySelector('creator');if(cr)D.author=cr.textContent;
+        var its=Array.from(opfDoc.querySelectorAll('item'));
+        its.forEach(function(it){var mt=it.getAttribute('media-type');if(mt==='application/xhtml+xml'||mt==='text/html')D.files.push(it.getAttribute('href'));});
+        var nav=its.find(function(it){return it.getAttribute('properties')==='nav'||(it.getAttribute('id')||'').toLowerCase().includes('nav');});
+        var ncx=its.find(function(it){return it.getAttribute('media-type')==='application/x-dtbncx+xml';});
+        var p1=nav?z.file(opfBase+nav.getAttribute('href')).async('string').then(function(nx){
+          var nd=PR.parseFromString(nx,'application/xhtml+xml');
+          var an=nd.querySelectorAll('nav a');
+          if(an.length){D.toc=Array.from(an).map(function(a,i){return{id:'t'+i,title:a.textContent.trim(),href:a.getAttribute('href'),full:a.textContent.trim()};});return true;}
+          return false;
+        }):Promise.resolve(false);
+        p1.then(function(ok){
+          if(!ok&&ncx){return z.file(opfBase+ncx.getAttribute('href')).async('string').then(function(nx){var nd=PR.parseFromString(nx,'application/xml');var np=nd.querySelectorAll('navPoint');if(np.length){D.toc=Array.from(np).map(function(n,i){var tx=n.querySelector('text')?n.querySelector('text').textContent.trim():(i+1)+'화';return{id:'t'+i,title:tx,href:n.querySelector('content')?n.querySelector('content').getAttribute('src'):'',full:tx};});}return true;});}
+          return ok;
+        }).then(function(){
+          if(!D.toc.length)D.toc=D.files.map(function(h,i){return{id:'t'+i,title:(i+1)+'화',href:h,full:(i+1)+'화'};});
+          ['tToc','tEdit'].forEach(function(id){document.getElementById(id).disabled=false;});
+          document.getElementById('ib2').textContent='📂 '+fname+' · 📄 '+D.files.length+'개';
+          document.getElementById('ic').classList.remove('hidden');
+          renderToc();populateSel();syncB();sw('tocTab');
+        });
+      });
+    });
+  }catch(err){console.error(err);alert('분석 실패: '+err.message);}
+}
+
+/* ─── 목차 ─── */
+function es(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function renderToc(){var tl=document.getElementById('tl');tl.innerHTML='';D.toc.forEach(function(item,i){tl.innerHTML+='<div class="ti"><input type="text" value="'+es(item.title)+'" id="ti'+i+'"><div class="tib"><button onclick="mv('+i+',-1)">▲</button><button onclick="mv('+i+',1)">▼</button><button onclick="dl('+i+')">✕</button></div></div>';});}
+function sts(){D.toc.forEach(function(item,i){var el=document.getElementById('ti'+i);if(el)item.title=el.value;});}
+function mv(i,d){if(i+d<0||i+d>=D.toc.length)return;sts();var tmp=D.toc[i];D.toc[i]=D.toc[i+d];D.toc[i+d]=tmp;renderToc();}
+function dl(i){sts();D.toc.splice(i,1);renderToc();}
+function addToc(){sts();D.toc.push({title:'새 항목',href:'',full:'새 항목'});renderToc();}
+function saveToc(){sts();toast('임시 저장 완료');}
+function prvRep(){sts();var f=document.getElementById('ft').value,r=document.getElementById('rt').value;if(!f)return alert('찾을 문자 입력');var t='[미리보기]\n\n';D.toc.slice(0,5).forEach(function(item){t+=item.title+' → '+item.title.split(f).join(r)+'\n';});alert(t);}
+function doRep(){sts();var f=document.getElementById('ft').value,r=document.getElementById('rt').value;if(!f)return;D.toc.forEach(function(item){item.title=item.title.split(f).join(r);});renderToc();}
+function openTocM(){document.getElementById('tocModal').classList.remove('hidden');}
+function doAutoToc(){var m=document.querySelector('input[name="tm"]:checked').value;D.toc=D.files.map(function(href,i){var ex=D.toc[i];var t=(m==='keep'&&ex&&ex.full)?ex.full:(i+1)+'화';return{id:'t'+i,title:t,href:href,full:ex&&ex.full?ex.full:t};});renderToc();document.getElementById('tocModal').classList.add('hidden');}
+
+/* ─── 블록 정의 ─── */
+var BL={
+kakao_wrap:'<div data-cb="kw" style="background:#b2c7d9;border-radius:14px;border:2px solid rgba(0,0,0,.08);padding:12px 10px 14px;margin:1em 2%;"><p style="text-indent:0;font-size:0.82em;font-weight:bold;color:#333;margin:0 0 6px 4px;text-align:center;padding:0;">대화 상대</p><hr style="border:none;border-top:1px solid rgba(0,0,0,.15);margin:0 0 10px;"/></div>',
+kakao_recv:'<div data-cb="kr" style="margin:6px 0;clear:both;"><p style="text-indent:0;font-size:12px;font-weight:700;color:#333;margin:0 0 3px 48px;padding:0;">이름</p><div style="display:flex;align-items:flex-end;gap:5px;margin-bottom:4px;"><div style="width:36px;height:36px;border-radius:50%;background:#c8e6f8;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" fill="#5baee3"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="#5baee3" stroke-width="2" stroke-linecap="round"/></svg></div><p style="text-indent:0;font-size:14px;border-radius:0 12px 12px 12px;background:#fff;padding:8px 11px;max-width:65%;line-height:1.55em;border:1px solid #eee;margin:0;word-break:keep-all;">받은 메시지 내용</p><span style="font-size:10px;color:#aaa;flex-shrink:0;padding-bottom:2px;">오전 10:00</span></div></div>',
+kakao_sent:'<div data-cb="ks" style="margin:6px 0;clear:both;"><div style="display:flex;align-items:flex-end;justify-content:flex-end;gap:5px;margin-bottom:4px;"><span style="font-size:10px;color:#aaa;flex-shrink:0;padding-bottom:2px;">오전 10:01</span><p style="text-indent:0;font-size:14px;border-radius:12px 0 12px 12px;background:#fee500;padding:8px 11px;max-width:65%;line-height:1.55em;margin:0;word-break:keep-all;">보낸 메시지 내용</p></div></div>',
+kakao_date:'<div data-cb="kd" style="text-indent:0;text-align:center;font-size:0.73em;color:#111;margin:9px 0;clear:both;line-height:1.8em;font-weight:600;padding:0;">─── 2025년 1월 1일 수요일 ───</div>',
+twitter:'<div data-cb="tw" style="border:1px solid #e1e8ed;border-radius:12px;margin:1em 4%;padding:12px;background:#fff;text-align:left;"><div style="display:flex;align-items:center;gap:7px;margin-bottom:7px;"><div style="width:32px;height:32px;border-radius:50%;background:#1da1f2;flex-shrink:0;"></div><div><p style="text-indent:0;margin:0;font-size:0.85em;font-weight:700;color:#14171a;padding:0;">표시 이름</p><p style="text-indent:0;margin:0;font-size:0.75em;color:#657786;padding:0;">@username</p></div><span style="margin-left:auto;color:#1da1f2;">𝕏</span></div><p style="text-indent:0;font-size:0.88em;margin:0 0 8px;line-height:1.5em;color:#14171a;padding:0;">트위터 내용 #해시태그</p><div style="font-size:0.72em;color:#657786;border-top:1px solid #e1e8ed;padding-top:7px;display:flex;gap:10px;"><span>💬 12</span><span>🔁 34</span><span>❤️ 128</span><span>↗</span><span>인용</span><span style="margin-left:auto;">오후 3:42</span></div></div>',
+twitter_bundle:'<div data-cb="tw_bundle" style="border:1px solid #e1e8ed;border-radius:12px;margin:1em 4%;background:#fff;text-align:left;"><div style="padding:12px 12px 8px;"><div style="display:flex;align-items:center;gap:7px;margin-bottom:7px;"><div style="width:32px;height:32px;border-radius:50%;background:#1da1f2;flex-shrink:0;"></div><div><p style="text-indent:0;margin:0;font-size:0.85em;font-weight:700;color:#14171a;padding:0;">표시 이름</p><p style="text-indent:0;margin:0;font-size:0.75em;color:#657786;padding:0;">@username</p></div><span style="margin-left:auto;color:#1da1f2;">𝕏</span></div><p style="text-indent:0;font-size:0.88em;margin:0 0 8px;line-height:1.5em;color:#14171a;padding:0;">트위터 게시글 내용</p><div style="font-size:0.72em;color:#657786;border-top:1px solid #e1e8ed;padding-top:7px;display:flex;gap:10px;"><span>💬 12</span><span>🔁 34</span><span>❤️ 128</span><span>↗</span><span>인용</span><span style="margin-left:auto;">오후 3:42</span></div></div><div style="border-top:2px solid #f0f3f4;padding:10px 12px;"><div style="margin-bottom:8px;"><p style="text-indent:0;margin:0 0 1px;font-size:0.82em;color:#14171a;padding:0;"><b>댓글 이름1</b> <span style="color:#657786;font-weight:normal;font-size:0.9em;">@reply1</span></p><p style="text-indent:0;margin:0;font-size:0.82em;line-height:1.45em;color:#333;padding:0;">댓글 내용을 여기에 입력하세요</p></div><div style="margin-bottom:8px;"><p style="text-indent:0;margin:0 0 1px;font-size:0.82em;color:#14171a;padding:0;"><b>댓글 이름2</b> <span style="color:#657786;font-weight:normal;font-size:0.9em;">@reply2</span></p><p style="text-indent:0;margin:0;font-size:0.82em;line-height:1.45em;color:#333;padding:0;">댓글 내용을 여기에 입력하세요</p></div><div><p style="text-indent:0;margin:0 0 1px;font-size:0.82em;color:#14171a;padding:0;"><b>댓글 이름3</b> <span style="color:#657786;font-weight:normal;font-size:0.9em;">@reply3</span></p><p style="text-indent:0;margin:0;font-size:0.82em;line-height:1.45em;color:#333;padding:0;">댓글 내용을 여기에 입력하세요</p></div></div></div>',
+twitter_rt:'<div data-cb="tw_rt" style="border:1px solid #e1e8ed;border-radius:12px;margin:1em 4%;padding:12px;background:#fff;text-align:left;"><div style="display:flex;align-items:center;gap:7px;margin-bottom:7px;"><div style="width:32px;height:32px;border-radius:50%;background:#1da1f2;flex-shrink:0;"></div><div><p style="text-indent:0;margin:0;font-size:0.85em;font-weight:700;color:#14171a;padding:0;">표시 이름</p><p style="text-indent:0;margin:0;font-size:0.75em;color:#657786;padding:0;">@username</p></div><span style="margin-left:auto;color:#1da1f2;">𝕏</span></div><p style="text-indent:0;font-size:0.88em;margin:0 0 9px;line-height:1.5em;color:#14171a;padding:0;">인용 코멘트를 여기에</p><div style="border:1px solid #e1e8ed;border-radius:9px;padding:10px;background:#f7f9fa;"><div style="display:flex;align-items:center;gap:5px;margin-bottom:4px;"><div style="width:18px;height:18px;border-radius:50%;background:#888;flex-shrink:0;"></div><p style="text-indent:0;margin:0;font-size:0.76em;font-weight:700;color:#333;padding:0;">원글 작성자 <span style="color:#657786;font-weight:normal;">@orig_user</span></p></div><p style="text-indent:0;font-size:0.83em;margin:0;color:#555;line-height:1.4em;padding:0;">원본 트윗 내용</p></div><div style="font-size:0.72em;color:#657786;border-top:1px solid #e1e8ed;padding-top:7px;margin-top:8px;display:flex;gap:10px;"><span>💬 5</span><span>🔁 21</span><span>❤️ 88</span><span>오후 3:42</span></div></div>',
+insta:'<div data-cb="ig" style="margin:1em 4%;background:#fff;"><div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #f0f0f0;margin-bottom:10px;"><div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);flex-shrink:0;"></div><span style="font-size:13px;font-weight:700;">username</span><span style="margin-left:auto;font-size:11px;color:#aaa;">활동 중</span></div><div style="display:flex;flex-direction:column;gap:6px;"><div style="display:flex;justify-content:flex-start;"><p style="text-indent:0;margin:0;font-size:14px;background:#f0f0f0;border-radius:18px 18px 18px 4px;padding:9px 13px;max-width:70%;line-height:1.5em;">받은 DM 내용</p></div><div style="display:flex;justify-content:flex-end;"><p style="text-indent:0;margin:0;font-size:14px;background:linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045);color:#fff;border-radius:18px 18px 4px 18px;padding:9px 13px;max-width:70%;line-height:1.5em;">보낸 DM 내용</p></div></div><p style="text-indent:0;margin:8px 0 0;font-size:11px;color:#aaa;text-align:right;padding:0;">오후 3:42 ✓✓</p></div>',
+insta_feed:'<div data-cb="if" style="border:1px solid #ddd;border-radius:4px;margin:1em 4%;background:#fff;"><div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid #eee;"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);flex-shrink:0;"></div><span style="font-size:14px;font-weight:700;">username</span><span style="margin-left:auto;font-size:18px;color:#333;">···</span></div><div style="background:#f0f0f0;height:200px;display:flex;align-items:center;justify-content:center;"><span style="font-size:13px;color:#aaa;">(사진)</span></div><div style="padding:10px 12px;"><div style="display:flex;gap:12px;margin-bottom:6px;font-size:18px;"><span>♡</span><span>🗨</span><span>↗</span></div><p style="text-indent:0;margin:0 0 5px;font-size:13px;padding:0;"><b>username</b> 님 외 여러 명이 좋아합니다</p><p style="text-indent:0;margin:0 0 5px;font-size:14px;line-height:1.5em;padding:0;"><b>username</b> 게시글 내용을 여기에 입력하세요 <span style="color:#00376b;">#해시태그</span></p><p style="text-indent:0;margin:0 0 5px;font-size:13px;color:#aaa;padding:0;">댓글 3,032개 모두 보기</p><p style="text-indent:0;margin:0 0 4px;font-size:14px;line-height:1.5em;padding:0;"><b>commenter1</b> 댓글 내용을 입력하세요</p><p style="text-indent:0;margin:0 0 4px;font-size:14px;line-height:1.5em;padding:0;"><b>commenter2</b> 댓글 내용을 입력하세요</p><p style="text-indent:0;margin:0 0 4px;font-size:14px;line-height:1.5em;padding:0;"><b>commenter3</b> 댓글 내용을 입력하세요</p><p style="text-indent:0;margin:6px 0 0;font-size:12px;color:#aaa;padding:0;">1시간 전</p></div></div>',
+youtube:'<div data-cb="yt" style="border:1px solid #eee;border-radius:9px;margin:1em 4%;padding:11px 13px;background:#fff;"><div style="display:flex;align-items:center;gap:7px;margin-bottom:5px;"><div style="width:26px;height:26px;border-radius:50%;background:#ddd;flex-shrink:0;"></div><span style="font-size:0.8em;font-weight:700;">채널명</span><span style="font-size:0.7em;color:#aaa;">1일 전</span></div><p style="text-indent:0;margin:0 0 6px;font-size:0.85em;padding:0;">유튜브 댓글 내용</p><div style="font-size:0.75em;color:#555;">👍 12 &nbsp;답글 달기</div></div>',
+noti2:'<div data-cb="nt2" style="margin:1.5em 5%; border-radius:18px; padding:16px; background:#fff; border:1px solid #e5e5ea; box-shadow:0 2px 8px rgba(0,0,0,0.04); text-indent:0; clear:both;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><div style="display:flex;align-items:center;gap:6px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="#ff2d55"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg><span style="font-size:13px;color:#8e8e93;font-weight:600;">메시지</span></div><span style="font-size:12px;color:#8e8e93;">지금</span></div><p style="text-indent:0;padding:0;margin:0 0 4px;font-size:15px;font-weight:700;color:#000;">제목</p><p style="text-indent:0;padding:0;margin:0;font-size:14px;color:#333;line-height:1.5em;">본문 내용을 여기에 입력하세요.</p></div>',
+system_h:'<div data-cb="sys_h" style="border:2px solid transparent;background:linear-gradient(#f5faff,#f5faff) padding-box,linear-gradient(90deg,#f9c8d9,#b8e4f7) border-box;border-radius:10px;margin:1em 3%;padding:14px 18px;display:inline-block;max-width:55%;vertical-align:top;"><div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;"><span style="font-size:13px;color:#e8a0b8;font-weight:700;">ⓘ</span><span style="font-size:12px;font-weight:700;color:#c080a0;letter-spacing:1px;">SYSTEM</span></div><p style="text-indent:0;margin:0 0 14px;font-size:14px;color:#555;line-height:1.85em;padding:0;">시스템 메시지 내용을 여기에 입력하세요. <span style="color:#85bcd8;">강조할 단어</span>는 파스텔 블루로.</p><div style="border-top:1px solid #c8b8d9;margin-top:14px;"></div></div>',
+system_v:'<div data-cb="sys_v" style="border:2px solid transparent;background:linear-gradient(#f5faff,#f5faff) padding-box,linear-gradient(180deg,#f9c8d9,#b8e4f7) border-box;border-radius:10px;margin:1em 3%;padding:14px 18px;display:inline-block;max-width:55%;vertical-align:top;"><div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;"><span style="font-size:13px;color:#e8a0b8;font-weight:700;">ⓘ</span><span style="font-size:12px;font-weight:700;color:#c080a0;letter-spacing:1px;">SYSTEM</span></div><p style="text-indent:0;margin:0 0 5px;font-size:14px;color:#333;padding:0;">이름: 이름을 입력하세요</p><p style="text-indent:0;margin:0 0 5px;font-size:14px;color:#333;padding:0;">항목 1: S</p><p style="text-indent:0;margin:0 0 5px;font-size:14px;color:#333;padding:0;">항목 2: A</p><p style="text-indent:0;margin:0 0 5px;font-size:14px;color:#333;padding:0;">항목 3: SS</p><p style="text-indent:0;margin:0 0 5px;font-size:14px;color:#333;padding:0;">항목 4: SS</p><p style="text-indent:0;margin:0 0 5px;font-size:14px;color:#333;padding:0;">항목 5: D</p><p style="text-indent:0;margin:0 0 10px;font-size:14px;color:#333;padding:0;">특성: ???</p><div style="border-top:1px solid #c8b8d9;"></div></div>',
+noti:'<div data-cb="nt" style="page-break-inside:avoid;border:1px solid #ccc;border-radius:20px;padding:18px 20px;margin:1.5em 5%;background:#fff;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><div style="display:flex;align-items:center;gap:6px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:linear-gradient(135deg,#f472b6,#ec4899);border-radius:5px;font-size:13px;flex-shrink:0;">💬</span><span style="font-size:0.78em;color:rgba(0,0,0,.45);font-weight:600;">메세지</span></div><span style="font-size:0.75em;color:rgba(0,0,0,.45);">지금</span></div><p style="text-indent:0;margin:0 0 3px;font-size:0.88em;font-weight:700;color:#1a1a1a;padding:0;">알림 제목 (굵게)</p><p style="text-indent:0;margin:0;font-size:0.85em;color:#333;line-height:1.55em;padding:0;">알림 내용을 여기에 입력하세요</p></div>',
+bubble:'<div data-cb="bub" style="background:#fff;border-radius:14px;margin:1em 4%;border:1px solid #f0f0f0;"><div style="padding:12px 14px 8px;display:flex;align-items:center;gap:9px;border-bottom:1px solid #f5f5f5;border-radius:14px 14px 0 0;"><div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#e0d4f7,#f7d4e8);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1em;">🫧</div><div><p style="text-indent:0;margin:0;font-size:0.88em;font-weight:700;color:#111;padding:0;">아티스트 이름</p><p style="text-indent:0;margin:0;font-size:0.68em;color:#bbb;padding:0;">Bubble</p></div></div><div style="padding:14px 14px 10px;display:flex;flex-direction:column;gap:10px;"><div style="display:flex;justify-content:flex-start;"><p style="text-indent:0;margin:0;font-size:0.9em;color:#111;background:#f2f2f2;border-radius:18px 18px 18px 4px;padding:9px 13px;max-width:75%;line-height:1.6em;">아티스트 메세지 내용 🐰</p></div><div style="display:flex;justify-content:flex-start;"><p style="text-indent:0;margin:0;font-size:0.9em;color:#111;background:#f2f2f2;border-radius:18px 18px 18px 4px;padding:9px 13px;max-width:75%;line-height:1.6em;">두 번째 메세지 내용</p></div><div style="display:flex;justify-content:flex-end;"><p style="text-indent:0;margin:0;font-size:0.9em;color:#fff;background:linear-gradient(135deg,#a78bfa,#ec4899);border-radius:18px 18px 4px 18px;padding:9px 13px;max-width:75%;line-height:1.6em;">내 답장 내용</p></div><p style="text-indent:0;margin:4px 0 0;font-size:0.68em;color:#ccc;text-align:right;padding:0;">오후 11:42</p></div><div style="padding:8px 12px 10px;border-top:1px solid #f5f5f5;border-radius:0 0 14px 14px;display:flex;align-items:center;justify-content:space-between;"><p style="text-indent:0;margin:0;font-size:0.75em;color:#ccc;padding:0;">메세지를 보내보세요</p><span style="font-size:1em;">💜</span></div></div>',
+weverse:'<div data-cb="wev" style="background:#fff;border-radius:12px;margin:1em 4%;border:1px solid #eee;"><div style="background:#00d564;padding:8px 14px;border-radius:12px 12px 0 0;"><p style="text-indent:0;margin:0;font-size:0.82em;font-weight:700;color:#fff;padding:0;">Weverse</p></div><div style="padding:12px 14px;border-bottom:1px solid #f0f0f0;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#00d564,#00b4d8);flex-shrink:0;"></div><div><p style="text-indent:0;margin:0;font-size:0.82em;font-weight:700;padding:0;">아티스트 이름</p><p style="text-indent:0;margin:0;font-size:0.72em;color:#aaa;padding:0;">Artist · 방금 전</p></div></div><p style="text-indent:0;margin:0 0 8px;font-size:0.9em;line-height:1.6em;padding:0;">위버스 포스트 내용을 여기에 입력하세요 ✨</p><div style="display:flex;gap:12px;font-size:0.78em;color:#aaa;"><span>❤️ 12.4만</span><span>💬 3,241</span></div></div><div style="padding:10px 14px;background:#fafafa;border-radius:0 0 12px 12px;"><p style="text-indent:0;margin:0 0 4px;font-size:0.78em;font-weight:700;padding:0;">댓글 이름1 <span style="color:#00d564;">팬</span></p><p style="text-indent:0;margin:0 0 6px;font-size:0.82em;color:#444;padding:0;">댓글 내용을 여기에</p><p style="text-indent:0;margin:0 0 4px;font-size:0.78em;font-weight:700;padding:0;">댓글 이름2 <span style="color:#00d564;">팬</span></p><p style="text-indent:0;margin:0;font-size:0.82em;color:#444;padding:0;">댓글 내용을 여기에</p></div></div>',
+};
+
+/* ─── 블록 삽입 ─── */
+var activeB=null;
+function insertRaw(html){
+  var pv=document.getElementById('pv');pv.focus();
+  snapUndo();
+  var tmp=document.createElement('div');tmp.innerHTML=html;
+  var bel=tmp.querySelector('[data-cb]');if(bel)bindB(bel);
+  var sel=window.getSelection();
+  if(sel.rangeCount&&pv.contains(sel.anchorNode)){
+    var r=sel.getRangeAt(0);
+    // 커서가 data-cb 블록 안에 있으면 그 블록 안 끝에 삽입
+    var node=sel.anchorNode;
+    var parentBlock=null;
+    while(node&&node!==pv){
+      if(node.nodeType===1&&node.hasAttribute&&node.hasAttribute('data-cb')){parentBlock=node;break;}
+      node=node.parentNode;
+    }
+    if(parentBlock){
+      var frag=document.createDocumentFragment();
+      while(tmp.firstChild)frag.appendChild(tmp.firstChild);
+      parentBlock.appendChild(frag);
+    } else {
+      r.collapse(false);
+      var frag2=document.createDocumentFragment();
+      while(tmp.firstChild)frag2.appendChild(tmp.firstChild);
+      r.insertNode(frag2);r.collapse(false);sel.removeAllRanges();sel.addRange(r);
+    }
+  }else{while(tmp.firstChild)pv.appendChild(tmp.firstChild);}
+}
+function ib(type){var html=BL[type];if(!html)return;insertRaw(html);closeBlock();}
+
+function bindB(el){
+  if(!el||!el.hasAttribute('data-cb'))return;
+  el.addEventListener('click',function(e){
+    e.stopPropagation();
+    activeB=el;
+    var pop=document.getElementById('dpop');
+    var rect=el.getBoundingClientRect();
+    var top=rect.bottom+window.scrollY+6;
+    if(top+100>window.innerHeight+window.scrollY)top=rect.top+window.scrollY-100;
+    pop.style.top=top+'px';pop.style.left='50%';pop.style.transform='translateX(-50%)';
+    pop.classList.add('show');
+  });
+}
+function delBlock(){if(!activeB)return;if(confirm('삭제할까요?')){activeB.remove();activeB=null;closeDpop();}}
+function closeDpop(){document.getElementById('dpop').classList.remove('show');activeB=null;}
+document.addEventListener('click',function(e){var p=document.getElementById('dpop');if(p.classList.contains('show')&&!p.contains(e.target))closeDpop();});
+function rebind(){document.querySelectorAll('#pv [data-cb]').forEach(bindB);}
+
+/* ─── 씬 적용 ─── */
+function applyScene(type){
+  var sel=window.getSelection();if(!sel.rangeCount||sel.isCollapsed)return alert('드래그해주세요');
+  snapUndo();
+  var range=sel.getRangeAt(0);var css=getCSS(type);var cn='calli-'+type;
+  try{var sp=document.createElement('span');sp.className=cn;sp.style.cssText=css;range.surroundContents(sp);}
+  catch(e){var frag=range.extractContents();wt(frag,cn,css);range.insertNode(frag);}
+  sel.removeAllRanges();
+}
+function wt(node,cn,css){
+  if(node.nodeType===Node.TEXT_NODE){if(node.textContent.trim()){var sp=document.createElement('span');sp.className=cn;sp.style.cssText=css;sp.appendChild(node.cloneNode(true));node.parentNode.replaceChild(sp,node);}}
+  else Array.from(node.childNodes).forEach(function(c){wt(c,cn,css);});
+}
+function removeScene(){document.querySelectorAll('#pv span[class^="calli-"]').forEach(function(sp){var pa=sp.parentNode;while(sp.firstChild)pa.insertBefore(sp.firstChild,sp);pa.removeChild(sp);});}
+
+/* ─── 챕터 ─── */
+function populateSel(){
+  var s=document.getElementById('cs');s.innerHTML='<option value="">챕터 선택...</option>';
+  var items=D.toc.length?D.toc:D.files.map(function(h,i){return{title:(i+1)+'',href:h};});
+  items.forEach(function(item){if(item.href)s.innerHTML+='<option value="'+es(item.href)+'">'+es(item.title)+'</option>';});
+}
+function loadChap(){
+  var href=document.getElementById('cs').value;if(!href)return;
+  var clean=href.split('#')[0];
+  var key=Object.keys(zip.files).find(function(k){return k.endsWith(clean);});
+  if(!key)return alert('파일을 찾을 수 없습니다');
+  chapPath=key;
+  zip.file(key).async('string').then(function(html){
+    var headStyles=[];
+    var styleRe=/<style[^>]*>([\s\S]*?)<\/style>/gi;var sm;
+    while((sm=styleRe.exec(html))!==null)headStyles.push(sm[1]);
+    var m=html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    var bodyContent=m?m[1]:html;
+    // head 스타일은 pv 기본 글씨 크기에 영향 안 주도록 scoped
+    var styleTag=headStyles.length?'<style scoped>'+headStyles.join('\n')+'</style>':'';
+    document.getElementById('pv').innerHTML=styleTag+bodyContent;
+    rebind();
+    undoStack=[styleTag+bodyContent];redoStack=[];updateUndoBtns();
+  });
+}
+function saveChap(){
+  if(!chapPath)return alert('챕터가 없습니다');
+  var body=document.getElementById('pv').innerHTML
+    .replace(/<br>/gi,'<br/>').replace(/<hr>/gi,'<hr/>')
+    .replace(/<img([^>]*)(?<!\/)>/gi,'<img$1/>').replace(/&nbsp;/g,'&#160;');
+  zip.file(chapPath).async('string').then(function(html){
+    html=html.replace(/(<body[^>]*>)([\s\S]*?)(<\/body>)/i,'$1\n'+body+'\n$3');
+    zip.file(chapPath,html);
+    toast('챕터 저장 완료 ✅');
+  });
+}
+
+/* ─── 최종 저장 ─── */
+function saveEpub(){
+  toast('빌드 중...');
+  zip.file(opfPath).async('string').then(function(opfStr){
+    opfStr=opfStr.replace(/(<dc:title[^>]*>)[^<]*(<\/dc:title>)/i,'$1'+D.title+'$2');
+    opfStr=opfStr.replace(/(<dc:creator[^>]*>)[^<]*(<\/dc:creator>)/i,'$1'+D.author+'$2');
+    zip.file(opfPath,opfStr);
+    var css=D.classCss;
+    var promises=[];
+    if(css){
+      D.files.forEach(function(href){
+        var fp=opfBase+href;var f=zip.file(fp);if(!f)return;
+        promises.push(f.async('string').then(function(h){
+          if(!h.includes('</head>'))return;
+          h=h.replace(/<style[^>]*>[\s\S]*?<!--calli-->[\s\S]*?<\/style>/g,'');
+          h=h.replace('</head>','<style>\n'+css+'\n<!--calli-->\n</style>\n</head>');
+          zip.file(fp,h);
+        }));
+      });
+    }
+    Promise.all(promises).then(function(){
+      zip.file('mimetype').async('string').then(function(mc){
+        var out=new JSZip();
+        out.file('mimetype',mc,{compression:'STORE'});
+        var ps=[];
+        Object.entries(zip.files).forEach(function(e){
+          var path=e[0],file=e[1];
+          if(path==='mimetype'||file.dir)return;
+          ps.push(file.async('uint8array').then(function(data){out.file(path,data,{compression:'DEFLATE',compressionOptions:{level:6}});}));
+        });
+        Promise.all(ps).then(function(){
+          out.generateAsync({type:'blob',mimeType:'application/epub+zip'}).then(function(blob){
+            var n=D.title.replace(/[^\w\uAC00-\uD7A3]/g,'_');
+            var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=n+'_편집본.epub';document.body.appendChild(a);a.click();document.body.removeChild(a);
+            toast('저장 완료! ✅');
+          });
+        });
+      });
+    });
+  });
+}
+
+/* ─── 카카오 래퍼 ─── */
+var curKakaoBg='#b2c7d9';
+function openKakaoModal(){curKakaoBg='#b2c7d9';document.querySelectorAll('.kt-btn').forEach(function(b,i){b.style.outline=i===0?'2px solid var(--p)':'none';});document.getElementById('kakaoModal').classList.remove('hidden');}
+function selKakao(btn){document.querySelectorAll('.kt-btn').forEach(function(b){b.style.outline='none';});btn.style.outline='2px solid var(--p)';curKakaoBg=btn.dataset.bg;}
+function insertKakaoWrap(){
+  var name=document.getElementById('kakaoName').value||'대화 상대';
+  var bg=curKakaoBg;
+  var html='<div data-cb="kw" style="background:'+bg+';border-radius:14px;border:2px solid rgba(0,0,0,.08);padding:14px 10px;margin:1em 2%;"><p style="text-indent:0;font-size:0.85em;font-weight:bold;color:#333;margin:0 0 8px 4px;padding:0;">'+name+'</p><div style="border-bottom:1px solid rgba(0,0,0,.12);margin-bottom:10px;"></div></div>';
+  insertRaw(html);document.getElementById('kakaoModal').classList.add('hidden');
+}
+
+/* ─── 카카오 목록 ─── */
+var _klBg='#fff';
+function openKakaoListModal(){_klBg='#fff';document.querySelectorAll('.kl-bg-btn').forEach(function(b,i){b.style.borderColor=i===0?'var(--p)':'var(--bd)';});document.getElementById('kakaoListModal').classList.remove('hidden');}
+function selKlBg(btn,bg){document.querySelectorAll('.kl-bg-btn').forEach(function(b){b.style.borderColor='var(--bd)';});btn.style.borderColor='var(--p)';_klBg=bg;}
+function insertKakaoList(){
+  var bg=_klBg;var pr='50%';
+  var headerBg=bg==='#fff'?'#f9f9f9':'#f0e8ff';var bd=bg==='#fff'?'#e5e5e5':'rgba(0,0,0,.08)';
+  var html='<div data-cb="kl" style="background:'+bg+';border-radius:4px;margin:1em 0;border:1px solid '+bd+';"><div style="background:'+headerBg+';padding:10px 16px;border-bottom:1px solid '+bd+';display:flex;align-items:center;justify-content:space-between;border-radius:4px 4px 0 0;"><span style="font-size:0.95em;font-weight:800;color:#1a1a1a;">채팅</span><div style="display:flex;gap:14px;font-size:1.1em;color:#555;">🔍 ✏️</div></div><div style="padding:0 4px;"><div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid '+bd+';"><div style="position:relative;flex-shrink:0;"><div style="width:46px;height:46px;border-radius:'+pr+';background:linear-gradient(135deg,#fda4af,#c4b5fd);"></div><div style="position:absolute;bottom:0;right:0;width:15px;height:15px;border-radius:50%;background:#fee500;border:1.5px solid '+bg+';display:flex;align-items:center;justify-content:center;font-size:8px;">😊</div></div><div style="flex:1;min-width:0;"><div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-size:0.88em;font-weight:700;color:#1a1a1a;">채팅방 이름 1</span><span style="font-size:0.7em;color:#aaa;">오후 3:42</span></div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;"><span style="font-size:0.78em;color:#888;">마지막 메시지 내용</span><span style="background:#fe3a2c;color:#fff;font-size:0.65em;font-weight:700;border-radius:10px;padding:1px 6px;">3</span></div></div></div><div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid '+bd+';"><div style="width:46px;height:46px;border-radius:'+pr+';background:linear-gradient(135deg,#a7f3d0,#6ee7b7);flex-shrink:0;"></div><div style="flex:1;min-width:0;"><div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-size:0.88em;font-weight:700;color:#1a1a1a;">채팅방 이름 2</span><span style="font-size:0.7em;color:#aaa;">오전 11:20</span></div><div style="margin-top:2px;font-size:0.78em;color:#888;">마지막 메시지 내용</div></div></div><div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid '+bd+';"><div style="width:46px;height:46px;border-radius:'+pr+';background:linear-gradient(135deg,#bae6fd,#93c5fd);flex-shrink:0;"></div><div style="flex:1;min-width:0;"><div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-size:0.88em;font-weight:700;color:#1a1a1a;">채팅방 이름 3</span><span style="font-size:0.7em;color:#aaa;">어제</span></div><div style="margin-top:2px;font-size:0.78em;color:#aaa;">📷 사진</div></div></div><div style="display:flex;align-items:center;gap:10px;padding:10px 12px;"><div style="width:46px;height:46px;border-radius:30%;background:linear-gradient(135deg,#fde68a,#fbbf24);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.3em;">🛍</div><div style="flex:1;min-width:0;"><div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-size:0.88em;font-weight:700;color:#1a1a1a;">채팅방 이름 4</span><span style="font-size:0.7em;color:#aaa;">월요일</span></div><div style="margin-top:2px;font-size:0.78em;color:#aaa;">마지막 메시지 내용</div></div></div></div></div>';
+  insertRaw(html);document.getElementById('kakaoListModal').classList.add('hidden');
+}
+
+/* ─── 커뮤 ─── */
+var curCommTheme={bd:'#ffafc1',hbg:'#fff0f5',bg:'#fff8fa',ac:'#e07090',btn:'#ffb6c1'};
+function openCommModal(){document.querySelectorAll('.comm-theme-btn').forEach(function(b,i){b.style.outline=i===0?'2px solid var(--p)':'none';});document.getElementById('commModal').classList.remove('hidden');}
+function selectCommTheme(btn){document.querySelectorAll('.comm-theme-btn').forEach(function(b){b.style.outline='none';});btn.style.outline='2px solid var(--p)';curCommTheme={bd:btn.dataset.bd,hbg:btn.dataset.hbg,bg:btn.dataset.bg,ac:btn.dataset.ac,btn:btn.dataset.btn};}
+function insertComm(){
+  var t=curCommTheme;
+  var html='<div data-cb="cf" style="border:1.5px solid '+t.bd+';border-radius:8px;margin:1em 0;"><div style="background:'+t.hbg+';border-bottom:1px solid '+t.bd+';padding:7px 12px;display:flex;gap:10px;align-items:center;border-radius:8px 8px 0 0;"><span style="font-size:0.82em;font-weight:bold;color:'+t.ac+';">게시판 이름</span><span style="font-size:0.78em;color:#aaa;">익명</span></div><div style="padding:11px 14px;background:'+t.bg+';"><p style="text-indent:0;font-size:0.95em;font-weight:bold;margin:0 0 7px;padding:0;">제목</p><p style="text-indent:0;font-size:0.88em;margin:0 0 10px;padding:0;line-height:1.6em;color:#444;">내용을 여기에 입력하세요.</p><p style="text-indent:0;font-size:0.78em;color:#aaa;margin:0;padding:0;">👁 조회 128 &nbsp;👍 추천 12 &nbsp;💬 댓글 5</p></div><div style="background:'+t.hbg+';border-top:1px solid '+t.bd+';padding:6px 12px;text-align:center;border-radius:0 0 8px 8px;"><p style="text-indent:0;margin:0;font-size:0.9em;font-weight:bold;background:'+t.btn+';color:#fff;display:inline-block;padding:6px 14px;border-radius:20px;">👍 추천</p></div></div>';
+  insertRaw(html);document.getElementById('commModal').classList.add('hidden');
+}
+
+/* ─── 취소선 ─── */
+var curSkColor='#111';
+function openStrikeModal(){curSkColor='#111';document.querySelectorAll('.sk-btn').forEach(function(b,i){b.style.borderColor=i===0?'var(--p)':'var(--bd)';});document.getElementById('strikeModal').classList.remove('hidden');}
+function selSk(btn,c){document.querySelectorAll('.sk-btn').forEach(function(b){b.style.borderColor='var(--bd)';});btn.style.borderColor='var(--p)';curSkColor=c;}
+function insertStrike(){
+  var tx=document.getElementById('strike_text').value||'취소선 텍스트';
+  var c=curSkColor;
+  var html='<span style="text-decoration:line-through;text-decoration-color:'+c+';text-decoration-thickness:1.5px;color:'+c+';">'+tx+'</span>';
+  insertRaw(html);document.getElementById('strikeModal').classList.add('hidden');document.getElementById('strike_text').value='';
+}
+
+function toast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},2000);}
+
+/* ─── 장식선 ─── */
+var DECO_LINES=[
+  '════════════════════',
+  '〰〰〰〰〰〰〰〰〰〰〰',
+  '⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯',
+  '────────────────────',
+  '⋯ ⋯ ⋯ ⋯ ⋯ ⋯ ⋯ ⋯ ⋯',
+  '┈┈┈┈┈┈┈┈┈┈┈┈┈',
+  '┄┄┄┄┄┄┄┄┄┄┄┄┄',
+  '━━━━━━━━━━━━━━━━━━━━',
+  '╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴',
+  '• ───────────────── •',
+  '✦ ─────────────── ✦',
+  '◆ ─────────────── ◆',
+  '◇ ─────────────── ◇',
+  '❖ ─────────────── ❖',
+  '╭──────────────────╮',
+  '╰──────────────────╯',
+  '┌──────────────────┐',
+  '└──────────────────┘'
+];
+function buildDecoLines(){
+  var w=document.getElementById('decoLines');if(!w)return;
+  DECO_LINES.forEach(function(line){
+    var btn=document.createElement('button');
+    btn.textContent=line;
+    btn.style.cssText='width:100%;padding:7px 8px;border-radius:6px;border:1px solid var(--bd);background:var(--card2);color:var(--tx);font-size:12px;font-family:monospace;cursor:pointer;text-align:center;letter-spacing:0;overflow:hidden;white-space:nowrap;';
+    btn.addEventListener('click',function(){
+      navigator.clipboard.writeText(line).then(function(){
+        toast('장식선 복사됨 ✅');
+      }).catch(function(){
+        var ta=document.createElement('textarea');ta.value=line;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+        toast('장식선 복사됨 ✅');
+      });
+    });
+    btn.addEventListener('touchstart',function(){btn.style.background='rgba(124,106,181,.25)';btn.style.borderColor='var(--p)';},{passive:true});
+    btn.addEventListener('touchend',function(){btn.style.background='var(--card2)';btn.style.borderColor='var(--bd)';},{passive:true});
+    w.appendChild(btn);
+  });
+}
+
+window.onload=function(){buildGrads();buildDecoLines();};
+</script>
+</body>
+</html>
