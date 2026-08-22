@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>누락 검사기 v1.0</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root{
+  --p:#7C3AED; --p-light:#A78BFA; --p-dim:#F0EEFF;
+  --bg:#F5F4FA; --surface:#fff; --text:#1F1B24; --text-dim:#79737f;
+  --border:#E8E4F3; --radius:14px;
+  --green:#1a9c56; --green-bg:#eaf8ed;
+  --red:#c0392b; --red-bg:#fdeeed;
+  --amber:#8a6100; --amber-bg:#fff6e5;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR','Malgun Gothic',sans-serif;font-size:15px;line-height:1.75;}
+#top-header{background:linear-gradient(135deg,#A78BFA,#7C3AED);color:#fff;padding:26px 20px 22px;}
+.logo{font-size:20px;font-weight:700;letter-spacing:-.5px;}
+.logo-sub{font-size:12px;opacity:.9;margin-top:4px;}
+.wrap{max-width:600px;margin:0 auto;padding:18px 16px 60px;}
+.card{background:var(--surface);border-radius:var(--radius);padding:18px;margin-bottom:14px;box-shadow:0 3px 14px rgba(80,60,140,.06);border:1px solid var(--border);}
+.step-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.step-num{flex-shrink:0;width:26px;height:26px;border-radius:50%;background:var(--p);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+.step-title{font-size:16px;font-weight:700;}
+.desc{color:var(--text-dim);font-size:13.5px;line-height:1.7;}
+.dropzone{display:block;border:2px dashed var(--p-light);border-radius:var(--radius);background:var(--p-dim);padding:24px 16px;text-align:center;cursor:pointer;transition:.15s;}
+.dropzone.over{background:#e5defc;border-color:var(--p);}
+.dropzone input{display:none;}
+.dz-icon{font-size:26px;margin-bottom:6px;}
+.dz-label strong{color:var(--p);font-size:14.5px;}
+.dz-label div{font-size:12px;color:var(--text-dim);margin-top:3px;}
+.file-list{margin-top:12px;}
+.file-item{display:flex;align-items:center;gap:8px;background:var(--p-dim);border-radius:9px;padding:9px 12px;margin-bottom:6px;font-size:13px;}
+.file-item .fname{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;}
+.file-item .ftype{font-size:11px;color:var(--p);background:#fff;padding:2px 7px;border-radius:6px;font-weight:700;}
+.file-item .frm{color:var(--red);font-weight:700;cursor:pointer;padding:0 4px;}
+.btn{width:100%;border:0;border-radius:12px;padding:14px;margin-top:12px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;transition:.15s;}
+.btn-primary{background:var(--p);color:#fff;}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+.checklist{display:flex;flex-direction:column;gap:8px;margin-top:4px;}
+.checklist label{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;cursor:pointer;}
+.checklist input{accent-color:var(--p);width:16px;height:16px;}
+.result-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:14px;}
+.rs-item{background:var(--p-dim);border-radius:10px;padding:10px 4px;text-align:center;}
+.rs-item b{display:block;font-size:16px;color:var(--p);}
+.rs-item span{font-size:10.5px;color:var(--text-dim);}
+.result-block{border-radius:12px;padding:14px;margin-bottom:12px;}
+.result-block.err{background:var(--red-bg);}
+.result-block.warn{background:var(--amber-bg);}
+.result-block.ok{background:var(--green-bg);}
+.result-block .rb-title{font-weight:700;font-size:14px;margin-bottom:8px;}
+.result-block.err .rb-title{color:var(--red);}
+.result-block.warn .rb-title{color:var(--amber);}
+.result-block.ok .rb-title{color:#136b39;}
+.chip-list{display:flex;flex-wrap:wrap;gap:6px;}
+.chip{background:#fff;border-radius:7px;padding:4px 9px;font-size:12.5px;font-weight:600;}
+.result-block.err .chip{color:var(--red);}
+.result-block.warn .chip{color:var(--amber);}
+.cat-head{font-size:13px;font-weight:700;color:var(--text-dim);margin:14px 0 6px;}
+.cat-head:first-child{margin-top:0;}
+.status{margin-top:14px;padding:13px 14px;border-radius:10px;background:#f2f1f7;font-size:13.5px;line-height:1.7;}
+.status.err{background:var(--red-bg);color:var(--red);}
+.small{color:var(--text-dim);font-size:12px;line-height:1.6;margin-top:8px;}
+</style>
+</head>
+<body>
+
+<div id="top-header">
+  <div class="logo">누락 검사기</div>
+  <div class="logo-sub">EPUB · TXT 파일의 누락/중복 회차를 검사합니다</div>
+</div>
+
+<div class="wrap">
+
+  <div class="card">
+    <div class="desc">
+      합치기·화수추가·합권 작업을 거친 최종 파일을 올리면, 화수가 중간에 비거나 겹치는 게 없는지,
+      순서가 뒤섞인 건 없는지 자동으로 확인해드려요.<br><br>
+      본편/외전/특별외전/IF외전은 각각 따로 번호를 매겨서 검사해요.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="step-head"><div class="step-num">1</div><div class="step-title">검사할 파일 업로드</div></div>
+
+    <label class="dropzone" id="dz">
+      <input id="fileInput" type="file" accept=".epub,.txt" multiple>
+      <div class="dz-icon">🔍</div>
+      <div class="dz-label">
+        <strong>파일을 끌어다 놓거나 클릭</strong>
+        <div>EPUB · TXT 모두 가능 · 다중 선택 지원</div>
+      </div>
+    </label>
+
+    <div id="fileList" class="file-list"></div>
+  </div>
+
+  <div class="card">
+    <div class="step-head"><div class="step-num">2</div><div class="step-title">검수 항목</div></div>
+
+    <div class="checklist">
+      <label><input type="checkbox" id="chkMissing" checked> 누락 회차 검사 <span style="color:var(--text-dim);font-weight:400;">— 1화→3화처럼 건너뛴 화차 감지</span></label>
+      <label><input type="checkbox" id="chkDup" checked> 중복 회차 검사 <span style="color:var(--text-dim);font-weight:400;">— 같은 번호가 두 번 이상 등장</span></label>
+      <label><input type="checkbox" id="chkOrder" checked> 정렬 순서 검사 <span style="color:var(--text-dim);font-weight:400;">— 1,10,2,3 같은 잘못된 정렬 감지</span></label>
+    </div>
+
+    <button id="runBtn" class="btn btn-primary" disabled>🔍 검수 시작</button>
+    <div id="status" class="status" style="display:none;"></div>
+  </div>
+
+  <div id="resultCard" class="card" style="display:none;">
+    <div class="step-head"><div class="step-num">✓</div><div class="step-title">검수 결과</div></div>
+    <div id="resultBody"></div>
+  </div>
+
+</div>
+
+<script>
+
+let loadedFiles = []; // [{file, type:'epub'|'txt'}]
+
+const dz = document.getElementById('dz');
+const fileInput = document.getElementById('fileInput');
+const fileList = document.getElementById('fileList');
+const runBtn = document.getElementById('runBtn');
+const statusBox = document.getElementById('status');
+const resultCard = document.getElementById('resultCard');
+const resultBody = document.getElementById('resultBody');
+
+dz.addEventListener('dragover', e=>{ e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', ()=> dz.classList.remove('over'));
+dz.addEventListener('drop', e=>{
+  e.preventDefault(); dz.classList.remove('over');
+  addFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', ()=> addFiles(fileInput.files));
+
+function addFiles(fileArr){
+  const arr = Array.from(fileArr);
+  arr.forEach(f=>{
+    const ext = f.name.toLowerCase().split('.').pop();
+    if(ext!=='epub' && ext!=='txt') return;
+    if(loadedFiles.find(x=>x.file.name===f.name && x.file.size===f.size)) return;
+    loadedFiles.push({ file:f, type: ext });
+  });
+  renderFileList();
+}
+
+function renderFileList(){
+  if(!loadedFiles.length){ fileList.innerHTML=''; runBtn.disabled=true; return; }
+  fileList.innerHTML = loadedFiles.map((item,i)=>
+    `<div class="file-item">
+       <span class="ftype">${item.type.toUpperCase()}</span>
+       <span class="fname">${escXml(item.file.name)}</span>
+       <span class="frm" data-i="${i}">×</span>
+     </div>`
+  ).join('');
+  fileList.querySelectorAll('.frm').forEach(el=>{
+    el.onclick = ()=>{ loadedFiles.splice(parseInt(el.dataset.i),1); renderFileList(); };
+  });
+  runBtn.disabled = false;
+}
+
+function escXml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* =========================================================
+   챕터 제목에서 카테고리/번호/파트 추출
+   - 본편/외전/특별외전/IF외전/번외 카테고리별로 따로 번호 관리
+   - "1화-1", "1화(2)" 같은 하위 파트는 같은 화 번호의 파트로 취급
+     (파트 차이는 누락 검사에서 별개 화수로 세지 않음)
+   ========================================================= */
+
+function parseChapterTitle(rawTitle){
+  const t = String(rawTitle).trim();
+  if(!t) return null;
+
+  let category = '본편';
+  if(/IF\s*외전/i.test(t)) category = 'IF외전';
+  else if(/특별\s*외전/.test(t)) category = '특별외전';
+  else if(/외전/.test(t)) category = '외전';
+  else if(/번외/.test(t)) category = '번외';
+
+  const m = t.match(/(\d+)\s*(?:\.\d+)?\s*(화|장|권|회)(?:\s*[-–—]\s*(\d+)|\s*\((\d+)\))?/);
+  if(!m) return null;
+
+  const number = parseInt(m[1],10);
+  const part = m[3] ? parseInt(m[3],10) : (m[4] ? parseInt(m[4],10) : null);
+
+  return { category, number, part, raw:t };
+}
+
+/* =========================================================
+   TXT에서 챕터 제목 라인 추출
+   - 짧은 줄(40자 이하)이면서 위 정규식에 매칭되는 줄만 챕터 제목으로 인식
+   ========================================================= */
+
+function extractChaptersFromTxt(text){
+  const lines = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
+  const chapters = [];
+  lines.forEach(line=>{
+    const t = line.trim();
+    if(!t || t.length > 40) return;
+    const parsed = parseChapterTitle(t);
+    if(parsed) chapters.push(parsed);
+  });
+  return chapters;
+}
+
+/* =========================================================
+   EPUB에서 챕터 제목 추출
+   - toc.ncx의 navLabel > text 우선 사용
+   - ncx가 없으면 spine 순서대로 각 xhtml의 첫 h1/h2 텍스트 사용
+   ========================================================= */
+
+async function extractChaptersFromEpub(file){
+
+  const zip = await JSZip.loadAsync(file);
+
+  let opfPath = null;
+  const containerFile = zip.file('META-INF/container.xml');
+  if(containerFile){
+    const containerXml = await containerFile.async('string');
+    const containerDoc = new DOMParser().parseFromString(containerXml,'text/xml');
+    const rootfile = containerDoc.querySelector('rootfile');
+    if(rootfile) opfPath = rootfile.getAttribute('full-path');
+  }
+  if(!opfPath){
+    const cand = Object.keys(zip.files).find(n=>n.toLowerCase().endsWith('.opf'));
+    if(!cand) throw new Error('OPF 파일을 찾을 수 없음');
+    opfPath = cand;
+  }
+  const opfDir = opfPath.includes('/') ? opfPath.substring(0,opfPath.lastIndexOf('/')+1) : '';
+  const opfFileObj = zip.file(opfPath);
+  if(!opfFileObj) throw new Error('OPF 파일 누락: '+opfPath);
+  const opfXml = await opfFileObj.async('string');
+  const opfDoc = new DOMParser().parseFromString(opfXml,'text/xml');
+
+  // 1) toc.ncx 우선 시도
+  const ncxItem = opfDoc.querySelector('manifest item[media-type="application/x-dtbncx+xml"]');
+  if(ncxItem){
+    const ncxHref = ncxItem.getAttribute('href');
+    const ncxFileObj = zip.file(opfDir+ncxHref) || zip.file(decodeURIComponent(opfDir+ncxHref));
+    if(ncxFileObj){
+      const ncxXml = await ncxFileObj.async('string');
+      const ncxDoc = new DOMParser().parseFromString(ncxXml,'text/xml');
+      const labels = Array.from(ncxDoc.querySelectorAll('navPoint navLabel > text'))
+        .map(el=>el.textContent.trim()).filter(Boolean);
+      if(labels.length){
+        return labels.map(parseChapterTitle).filter(Boolean);
+      }
+    }
+  }
+
+  // 2) NCX가 없거나 비어있으면 spine 순서대로 본문에서 제목(h1/h2) 추출
+  const spineItems = [];
+  opfDoc.querySelectorAll('spine > itemref').forEach(ref=>{
+    const id = ref.getAttribute('idref');
+    const item = opfDoc.querySelector(`manifest item[id="${id}"]`);
+    if(item) spineItems.push(item.getAttribute('href'));
+  });
+
+  const chapters = [];
+  for(const href of spineItems){
+    const fullPath = opfDir+href;
+    const fileObj = zip.file(fullPath) || zip.file(decodeURIComponent(fullPath));
+    if(!fileObj) continue;
+    const html = await fileObj.async('string');
+    const doc = new DOMParser().parseFromString(html,'text/html');
+    const heading = doc.querySelector('h1,h2,h3');
+    if(!heading) continue;
+    const parsed = parseChapterTitle(heading.textContent.trim());
+    if(parsed) chapters.push(parsed);
+  }
+  return chapters;
+}
+
+/* =========================================================
+   검사 실행
+   ========================================================= */
+
+runBtn.addEventListener('click', async ()=>{
+
+  runBtn.disabled = true;
+  statusBox.style.display = 'block';
+  statusBox.className = 'status';
+  statusBox.textContent = '파일 분석 중...';
+  resultCard.style.display = 'none';
+
+  const doMissing = document.getElementById('chkMissing').checked;
+  const doDup = document.getElementById('chkDup').checked;
+  const doOrder = document.getElementById('chkOrder').checked;
+
+  let allChapters = []; // 파일 순서/등장 순서 유지
+  const failedFiles = [];
+
+  for(const item of loadedFiles){
+    try{
+      let chs;
+      if(item.type==='epub'){
+        chs = await extractChaptersFromEpub(item.file);
+      } else {
+        const text = await item.file.text();
+        chs = extractChaptersFromTxt(text);
+      }
+      chs.forEach(c=> c.source = item.file.name);
+      allChapters = allChapters.concat(chs);
+    } catch(e){
+      failedFiles.push({ name:item.file.name, reason:e.message });
+    }
+  }
+
+  runBtn.disabled = false;
+  statusBox.style.display = 'none';
+
+  if(allChapters.length===0){
+    statusBox.style.display = 'block';
+    statusBox.className = 'status err';
+    statusBox.innerHTML = '<b>화수를 인식하지 못했습니다.</b><br>제목 형식(예: "1화", "외전 1화")이 다르거나, EPUB에 목차 정보가 없을 수 있어요.'
+      + (failedFiles.length ? '<br><br>파일 오류: '+failedFiles.map(f=>escXml(f.name)+' — '+escXml(f.reason)).join(', ') : '');
+    return;
+  }
+
+  // 카테고리별로 그룹화
+  const byCategory = {};
+  allChapters.forEach(c=>{
+    if(!byCategory[c.category]) byCategory[c.category]=[];
+    byCategory[c.category].push(c);
+  });
+
+  const catOrder = ['본편','외전','특별외전','IF외전','번외'];
+  const cats = catOrder.filter(c=>byCategory[c]);
+
+  let html = '';
+  let totalMissing=0, totalDup=0, totalOrderIssue=0;
+
+  html += `<div class="result-summary">
+    <div class="rs-item"><b>${loadedFiles.length}</b><span>검사 파일</span></div>
+    <div class="rs-item"><b>${allChapters.length}</b><span>인식된 화수</span></div>
+    <div class="rs-item" id="rs-missing"><b>-</b><span>누락</span></div>
+    <div class="rs-item" id="rs-dup"><b>-</b><span>중복</span></div>
+  </div>`;
+
+  cats.forEach(cat=>{
+
+    const list = byCategory[cat];
+    const appearanceOrder = list.map(c=>c.number); // 파일에 등장한 순서 그대로
+
+    // 파트 구분해서 고유 번호만 추출 (파트는 누락검사에 영향 안 줌)
+    const uniqueNumbers = [...new Set(list.map(c=>c.number))].sort((a,b)=>a-b);
+
+    html += `<div class="cat-head">${cat} (${list.length}개 인식, ${uniqueNumbers.length}개 화수)</div>`;
+
+    /* 누락 검사 */
+    if(doMissing && uniqueNumbers.length>0){
+      const min = uniqueNumbers[0], max = uniqueNumbers[uniqueNumbers.length-1];
+      const missing = [];
+      for(let n=min; n<=max; n++){
+        if(!uniqueNumbers.includes(n)) missing.push(n);
+      }
+      totalMissing += missing.length;
+      if(missing.length){
+        html += `<div class="result-block err">
+          <div class="rb-title">❌ 누락 회차 ${missing.length}건 발견</div>
+          <div class="chip-list">${missing.map(n=>`<span class="chip">${cat} ${n}화</span>`).join('')}</div>
+        </div>`;
+      } else {
+        html += `<div class="result-block ok"><div class="rb-title">✅ 누락 없음 (${min}~${max}화 연속)</div></div>`;
+      }
+    }
+
+    /* 중복 검사 (번호+파트 조합 기준) */
+    if(doDup){
+      const keyCount = {};
+      list.forEach(c=>{
+        const key = c.number+(c.part!=null?('-'+c.part):'');
+        keyCount[key] = (keyCount[key]||0)+1;
+      });
+      const dupKeys = Object.keys(keyCount).filter(k=>keyCount[k]>1);
+      totalDup += dupKeys.length;
+      if(dupKeys.length){
+        html += `<div class="result-block err">
+          <div class="rb-title">❌ 중복 회차 ${dupKeys.length}건 발견</div>
+          <div class="chip-list">${dupKeys.map(k=>`<span class="chip">${cat} ${k.replace('-',' 파트')}화 ×${keyCount[k]}</span>`).join('')}</div>
+        </div>`;
+      } else {
+        html += `<div class="result-block ok"><div class="rb-title">✅ 중복 없음</div></div>`;
+      }
+    }
+
+    /* 정렬 순서 검사 (파일에 등장한 순서가 오름차순인지) */
+    if(doOrder){
+      let orderOk = true;
+      let prevMax = -Infinity;
+      const seen = new Set();
+      for(const n of appearanceOrder){
+        if(seen.has(n)) continue; // 중복은 순서검사에서 제외(중복검사가 별도로 잡음)
+        seen.add(n);
+        if(n < prevMax){ orderOk = false; break; }
+        prevMax = Math.max(prevMax, n);
+      }
+      if(!orderOk) totalOrderIssue++;
+      html += `<div class="result-block ${orderOk?'ok':'warn'}">
+        <div class="rb-title">${orderOk?'✅ 정렬 순서 정상':'⚠️ 정렬 순서 이상 — 파일에 등장한 순서가 화수 오름차순이 아님'}</div>
+      </div>`;
+    }
+  });
+
+  if(failedFiles.length){
+    html += `<div class="result-block warn">
+      <div class="rb-title">⚠️ 처리 실패한 파일 ${failedFiles.length}개</div>
+      <div class="chip-list">${failedFiles.map(f=>`<span class="chip">${escXml(f.name)}: ${escXml(f.reason)}</span>`).join('')}</div>
+    </div>`;
+  }
+
+  resultBody.innerHTML = html;
+  resultCard.style.display = 'block';
+
+  const rsMissing = document.getElementById('rs-missing');
+  const rsDup = document.getElementById('rs-dup');
+  if(rsMissing) rsMissing.querySelector('b').textContent = totalMissing;
+  if(rsDup) rsDup.querySelector('b').textContent = totalDup;
+
+  resultCard.scrollIntoView({behavior:'smooth', block:'start'});
+});
+
+</script>
+</body>
+</html>
