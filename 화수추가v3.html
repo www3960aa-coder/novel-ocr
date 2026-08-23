@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>화수 자동 추가기 v3.1</title>
+
+<style>
+:root{
+  --p:#7C3AED;
+  --p-light:#A78BFA;
+  --p-dim:#F0EEFF;
+  --bg:#F5F4FA;
+  --surface:#FFFFFF;
+  --text:#1F1B24;
+  --text-dim:#79737f;
+  --border:#E8E4F3;
+  --radius:14px;
+  --green:#1a9c56;
+  --green-bg:#eaf8ed;
+  --red:#c0392b;
+  --red-bg:#fdeeed;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR','Malgun Gothic',sans-serif;
+  font-size:15px;
+  line-height:1.75;
+}
+
+#top-header{
+  background:linear-gradient(135deg,#A78BFA,#7C3AED);
+  color:#fff;
+  padding:26px 20px 22px;
+}
+.logo{font-size:20px;font-weight:700;letter-spacing:-.5px;}
+.logo-sub{font-size:12px;opacity:.9;margin-top:4px;}
+
+.wrap{max-width:600px;margin:0 auto;padding:18px 16px 60px;}
+
+.card{
+  background:var(--surface);
+  border-radius:var(--radius);
+  padding:18px;
+  margin-bottom:14px;
+  box-shadow:0 3px 14px rgba(80,60,140,.06);
+  border:1px solid var(--border);
+}
+
+.step-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.step-num{
+  flex-shrink:0;width:26px;height:26px;border-radius:50%;
+  background:var(--p);color:#fff;font-size:13px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+}
+.step-title{font-size:16px;font-weight:700;}
+
+.desc{color:var(--text-dim);font-size:13.5px;line-height:1.7;margin-bottom:4px;}
+.desc b{color:var(--text);}
+.desc code{display:inline-block;background:var(--p-dim);color:var(--p);padding:1px 7px;border-radius:6px;font-size:12.5px;}
+
+label{display:block;margin-top:12px;margin-bottom:6px;font-weight:700;font-size:13.5px;color:var(--text-dim);}
+
+input[type=number],select,textarea{
+  width:100%;border:1.5px solid var(--border);border-radius:10px;background:#fff;
+  padding:11px 12px;font-size:14.5px;font-family:inherit;color:var(--text);transition:border-color .15s;
+}
+input[type=number]:focus,select:focus,textarea:focus{outline:none;border-color:var(--p);}
+select{cursor:pointer;}
+
+textarea{min-height:150px;resize:vertical;line-height:1.8;font-variant-numeric:tabular-nums;}
+
+.small{color:var(--text-dim);font-size:12px;line-height:1.6;margin-top:6px;}
+
+.dropzone{
+  display:block;border:2px dashed var(--p-light);border-radius:var(--radius);
+  background:var(--p-dim);padding:24px 16px;text-align:center;cursor:pointer;transition:.15s;
+}
+.dropzone.over{background:#e5defc;border-color:var(--p);}
+.dropzone input{display:none;}
+.dz-icon{font-size:26px;margin-bottom:6px;}
+.dz-label strong{color:var(--p);font-size:14.5px;}
+.dz-label div{font-size:12px;color:var(--text-dim);margin-top:3px;}
+
+.file-loaded{display:flex;align-items:center;gap:10px;background:var(--green-bg);border-radius:10px;padding:12px 14px;margin-top:2px;}
+.file-loaded .fname{font-weight:700;font-size:13.5px;color:var(--text);word-break:break-all;}
+.file-loaded .fmeta{font-size:12px;color:var(--green);margin-top:2px;}
+
+.btn{width:100%;border:0;border-radius:12px;padding:14px;margin-top:12px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;transition:.15s;}
+.btn-primary{background:var(--p);color:#fff;}
+.btn-primary:active{background:#6a2fd0;}
+.btn-outline{background:#fff;color:var(--p);border:1.5px solid var(--p);}
+.btn-save{background:var(--green);color:#fff;display:none;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+.status{margin-top:14px;padding:13px 14px;border-radius:10px;background:#f2f1f7;font-size:13.5px;line-height:1.7;}
+.status.ok{background:var(--green-bg);color:#136b39;}
+.status.err{background:var(--red-bg);color:var(--red);}
+.status.warn{background:#fff6e5;color:#8a6100;}
+.status b{display:block;margin-bottom:2px;}
+
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;}
+.stat{background:var(--p-dim);border-radius:10px;padding:11px 8px;text-align:center;}
+.stat b{display:block;font-size:16px;color:var(--p);margin-bottom:2px;}
+.stat span{font-size:11.5px;color:var(--text-dim);}
+
+.preview{
+  display:none;margin-top:10px;background:#fafafd;border:1px solid var(--border);border-radius:10px;
+  padding:14px;max-height:440px;overflow:auto;white-space:pre-wrap;line-height:1.8;font-size:13.5px;
+}
+.preview .chap-label{color:var(--p);font-weight:700;}
+
+@media(max-width:420px){
+  .stats{grid-template-columns:1fr 1fr 1fr;}
+  .stat b{font-size:14px;}
+}
+</style>
+</head>
+
+<body>
+
+<div id="top-header">
+  <div class="logo">화수 자동 추가기</div>
+  <div class="logo-sub">화수 없는 통파일에 분량 기준으로 화수를 자동으로 나눠줍니다</div>
+</div>
+
+<div class="wrap">
+
+  <div class="card">
+    <div class="desc">
+      화수가 없는 소설 통파일에, 리디 등에 표시된 <b>약 3.2천 자</b> 같은
+      회차별 분량을 기준으로 화수를 자동으로 추가합니다.<br><br>
+      정확히 그 글자 수에서 자르지 않고, <b>가까운 문단 경계</b>를 찾아 자연스럽게 나눕니다.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="step-head"><div class="step-num">1</div><div class="step-title">통파일 선택</div></div>
+
+    <label class="dropzone" id="dz">
+      <input id="file" type="file" accept=".txt,text/plain">
+      <div class="dz-icon">📄</div>
+      <div class="dz-label">
+        <strong>TXT 파일 선택</strong>
+        <div>또는 이 영역에 드래그 앤 드롭</div>
+      </div>
+    </label>
+
+    <div id="fileLoaded" style="display:none;margin-top:10px;"></div>
+  </div>
+
+  <div class="card">
+    <div class="step-head"><div class="step-num">2</div><div class="step-title">회차별 글자 수</div></div>
+
+    <textarea id="sizes" placeholder="예:
+3.2
+3.4
+3.2
+3.5
+3.1
+3.3
+3.2"></textarea>
+
+    <div class="small">
+      한 줄에 숫자 하나씩. 리디에 표시된 '약 3.2천 자'라면 <code>3.2</code>만 입력하세요.
+      실제 글자 수(예: 3200)를 그대로 붙여넣어도 자동으로 알아서 인식합니다.
+      "1화 약 3.2천자"처럼 다른 글자가 섞여 붙여넣어져도 숫자만 뽑아냅니다.
+    </div>
+
+    <div id="sizesInfo" class="small" style="color:var(--p);font-weight:700;"></div>
+  </div>
+
+  <div class="card">
+    <div class="step-head"><div class="step-num">3</div><div class="step-title">회차 이름</div></div>
+
+    <div class="grid">
+      <div>
+        <label>시작 번호</label>
+        <input id="startNumber" type="number" value="1" min="1">
+      </div>
+      <div>
+        <label>회차 종류</label>
+        <select id="chapterType">
+          <option value="normal">1화, 2화, 3화...</option>
+          <option value="extra">외전 1화, 외전 2화...</option>
+          <option value="special">특별외전 1화, 특별외전 2화...</option>
+          <option value="if">IF외전 1화, IF외전 2화...</option>
+        </select>
+      </div>
+    </div>
+
+    <label>마지막 회차 표시</label>
+    <select id="lastStyle">
+      <option value="normal">그냥 번호만</option>
+      <option value="complete">마지막 회차에 (완결) 표시</option>
+    </select>
+
+    <button id="run" class="btn btn-primary">⚡ 화수 자동 추가</button>
+
+    <div id="status" class="status">TXT 파일과 회차별 글자 수를 넣어주세요.</div>
+    <div id="stats"></div>
+  </div>
+
+  <div class="card">
+    <div class="step-head"><div class="step-num">4</div><div class="step-title">결과</div></div>
+
+    <button id="previewBtn" class="btn btn-outline">▶ 미리보기</button>
+    <div id="preview" class="preview"></div>
+
+    <button id="save" class="btn btn-save">⬇ 결과 TXT 저장하기</button>
+  </div>
+
+</div>
+
+<script>
+
+let sourceText = "";
+let sourceName = "";
+let resultText = "";
+
+const dz = document.getElementById("dz");
+const fileInput = document.getElementById("file");
+const fileLoaded = document.getElementById("fileLoaded");
+const sizeInput = document.getElementById("sizes");
+const sizesInfo = document.getElementById("sizesInfo");
+const startNumberInput = document.getElementById("startNumber");
+const chapterTypeInput = document.getElementById("chapterType");
+const lastStyleInput = document.getElementById("lastStyle");
+const runButton = document.getElementById("run");
+const saveButton = document.getElementById("save");
+const previewButton = document.getElementById("previewBtn");
+const preview = document.getElementById("preview");
+const statusBox = document.getElementById("status");
+const stats = document.getElementById("stats");
+
+dz.addEventListener("dragover", function(e){ e.preventDefault(); dz.classList.add("over"); });
+dz.addEventListener("dragleave", function(){ dz.classList.remove("over"); });
+dz.addEventListener("drop", function(e){
+  e.preventDefault();
+  dz.classList.remove("over");
+  if(e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener("change", function(){
+  if(this.files[0]) loadFile(this.files[0]);
+});
+
+function loadFile(file){
+
+  if(!/\.txt$/i.test(file.name)){
+    showError("TXT 파일만 지원합니다.");
+    return;
+  }
+
+  sourceName = file.name;
+
+  const reader = new FileReader();
+
+  reader.onload = function(e){
+
+    let raw = String(e.target.result)
+      .replace(/\r\n/g,"\n")
+      .replace(/\r/g,"\n");
+
+    const cleaned = stripInvisibleChars(raw);
+    const removedCount = raw.length - cleaned.length;
+    sourceText = cleaned;
+
+    const paragraphs = makeParagraphs(sourceText);
+
+    fileLoaded.style.display = "block";
+    fileLoaded.innerHTML =
+      "<div class='file-loaded'>"+
+      "<div>"+
+      "<div class='fname'>"+escapeHtml(sourceName)+"</div>"+
+      "<div class='fmeta'>✅ 원문 "+countChars(sourceText).toLocaleString()+"자 · 문단 "+paragraphs.length.toLocaleString()+"개 인식</div>"+
+      (removedCount>0 ? "<div class='fmeta' style='color:var(--red);'>⚠ 눈에 안 보이는 특수문자 "+removedCount.toLocaleString()+"자 발견 — 자동으로 제거하고 계산했습니다 (유출방지 워터마크로 추정)</div>" : "")+
+      "</div></div>";
+
+    statusBox.className = "status ok";
+    statusBox.innerHTML = "<b>파일 불러오기 완료</b>회차별 글자 수를 입력한 뒤 [화수 자동 추가]를 눌러주세요.";
+
+  };
+
+  reader.onerror = function(){
+    showError("파일을 읽지 못했습니다.");
+  };
+
+  reader.readAsText(file, "UTF-8");
+}
+
+function countChars(text){
+  return String(text).replace(/\s/g,"").length;
+}
+
+/* =========================================================
+   눈에 안 보이는 워터마크 문자 제거
+   (리디 등 일부 플랫폼이 유출 추적용으로 원문 사이사이에
+    U+2060(WORD JOINER), U+2063(INVISIBLE SEPARATOR) 같은
+    폭 없는 문자를 심어놓는 경우가 있음. 화면엔 전혀 안 보이지만
+    글자수 계산엔 포함돼서, 회차별 목표 글자수 매칭이 챕터를
+    거듭할수록 조금씩 어긋나는 원인이 됨. 문단 구분 자체보단
+    글자수 계산 정확도에 영향을 줌.)
+   ========================================================= */
+
+function stripInvisibleChars(text){
+  return String(text).replace(/[\u200b\u200c\u200d\u2060\u2061\u2062\u2063\u2064\ufeff]/g, "");
+}
+
+function readSizes(){
+
+  const raw = sizeInput.value;
+  const lines = raw.split(/\n/).map(x=>x.trim()).filter(Boolean);
+  const values = [];
+
+  for(let i=0; i<lines.length; i++){
+
+    const cleaned = lines[i].replace(/,/g,"");
+    const match = cleaned.match(/(\d+(?:\.\d+)?)/);
+
+    if(!match){
+      throw new Error((i+1)+"번째 줄에서 숫자를 찾을 수 없습니다: "+lines[i]);
+    }
+
+    const num = parseFloat(match[1]);
+
+    if(!Number.isFinite(num) || num <= 0){
+      throw new Error((i+1)+"번째 줄의 숫자를 읽을 수 없습니다: "+lines[i]);
+    }
+
+    const hasCheon = /천/.test(cleaned);
+
+    // "천" 표기가 있거나 숫자가 100 미만이면 "천 자" 단위로 간주 (3.2 -> 3200자)
+    // 숫자가 100 이상이고 "천" 표기가 없으면 이미 실제 글자수로 간주 (3200 -> 3200자)
+    const chars = (hasCheon || num < 100) ? num*1000 : num;
+
+    values.push(chars);
+  }
+
+  return values;
+}
+
+sizeInput.addEventListener("input", function(){
+  try{
+    const values = readSizes();
+    if(values.length){
+      sizesInfo.textContent = "✓ "+values.length+"개 회차 인식됨 (예상 총 "+Math.round(values.reduce((a,b)=>a+b,0)).toLocaleString()+"자)";
+    } else {
+      sizesInfo.textContent = "";
+    }
+  } catch(e){
+    sizesInfo.textContent = "";
+  }
+});
+
+function makeParagraphs(text){
+
+  let paragraphs = text
+    .replace(/\uFEFF/g,"")
+    .split(/\n\s*\n+/)
+    .map(x=>x.trim())
+    .filter(Boolean);
+
+  if(paragraphs.length < 20){
+    const lines = text.split("\n").map(x=>x.trim()).filter(Boolean);
+    if(lines.length > paragraphs.length){
+      paragraphs = lines;
+    }
+  }
+
+  return paragraphs;
+}
+
+function buildInfo(paragraphs){
+  let cumulative = 0;
+  return paragraphs.map(function(text,index){
+    const length = countChars(text);
+    cumulative += length;
+    return { index:index, text:text, length:length, cumulative:cumulative };
+  });
+}
+
+function buildTargets(sizes){
+  let cumulative = 0;
+  return sizes.map(function(size){
+    cumulative += size;
+    return cumulative;
+  });
+}
+
+function findBoundary(info, target, startIndex){
+
+  if(startIndex >= info.length){
+    return null;
+  }
+
+  let best = null;
+  let bestDistance = Infinity;
+
+  for(let i=startIndex; i<info.length; i++){
+
+    const distance = Math.abs(info[i].cumulative - target);
+
+    if(distance < bestDistance){
+      bestDistance = distance;
+      best = i;
+    }
+
+    if(info[i].cumulative > target && distance > bestDistance){
+      break;
+    }
+  }
+
+  if(best === null){
+    return null;
+  }
+
+  return { index:best, distance:bestDistance };
+}
+
+function makeLabel(index, startNumber, type, isLast, lastStyle){
+
+  const number = startNumber + index;
+  let label;
+
+  if(type === "extra"){ label = "외전 "+number+"화"; }
+  else if(type === "special"){ label = "특별외전 "+number+"화"; }
+  else if(type === "if"){ label = "IF외전 "+number+"화"; }
+  else{ label = number+"화"; }
+
+  if(isLast && lastStyle === "complete"){
+    label += " (완결)";
+  }
+
+  return label;
+}
+
+const UNCERTAIN_RATIO = 0.35;
+
+function createResult(paragraphs, sizes){
+
+  const info = buildInfo(paragraphs);
+  const targets = buildTargets(sizes);
+
+  const startNumber = Math.max(1, parseInt(startNumberInput.value,10) || 1);
+  const type = chapterTypeInput.value;
+  const lastStyle = lastStyleInput.value;
+
+  const boundaries = [];
+  const uncertainChapters = [];
+
+  let currentStart = 0;
+
+  for(let i=0; i<sizes.length; i++){
+
+    if(i === sizes.length-1){
+      boundaries.push({ chapterIndex:i, start:currentStart, end:paragraphs.length, distance:0 });
+      break;
+    }
+
+    const found = findBoundary(info, targets[i], currentStart);
+
+    if(!found){
+      break;
+    }
+
+    let end = found.index;
+
+    if(end <= currentStart){
+      end = currentStart + 1;
+    }
+
+    boundaries.push({ chapterIndex:i, start:currentStart, end:end, distance:found.distance });
+
+    if(found.distance > sizes[i]*UNCERTAIN_RATIO){
+      uncertainChapters.push(startNumber+i);
+    }
+
+    currentStart = end;
+  }
+
+  const output = [];
+
+  boundaries.forEach(function(boundary){
+
+    const i = boundary.chapterIndex;
+    const label = makeLabel(i, startNumber, type, i === sizes.length-1, lastStyle);
+
+    output.push("[[CHAP:"+escapeHtml(label)+"]]");
+    output.push("\n\n");
+
+    const body = paragraphs.slice(boundary.start, boundary.end).join("\n\n");
+
+    output.push(body);
+    output.push("\n\n");
+  });
+
+  if(boundaries.length > 0){
+    const used = boundaries[boundaries.length-1].end;
+    if(used < paragraphs.length){
+      output.push(paragraphs.slice(used).join("\n\n"));
+    }
+  }
+
+  return {
+    text: output.join(""),
+    boundaries: boundaries,
+    uncertainChapters: uncertainChapters
+  };
+}
+
+runButton.addEventListener("click", function(){
+
+  if(!sourceText){
+    showError("먼저 통파일 TXT를 선택해주세요.");
+    return;
+  }
+
+  let sizes;
+
+  try{
+    sizes = readSizes();
+  }
+  catch(error){
+    showError(error.message);
+    return;
+  }
+
+  if(sizes.length === 0){
+    showError("회차별 글자 수를 입력해주세요.");
+    return;
+  }
+
+  const paragraphs = makeParagraphs(sourceText);
+
+  if(paragraphs.length < sizes.length){
+    showError(
+      "인식된 문단 수가 회차 수보다 적습니다.<br>"+
+      "문단: "+paragraphs.length+"개 / 회차: "+sizes.length+"개"
+    );
+    return;
+  }
+
+  try{
+
+    const result = createResult(paragraphs, sizes);
+
+    resultText = result.text.replace(/\[\[CHAP:(.*?)\]\]/g, function(m,label){ return unescapeHtml(label); });
+
+    const inserted = result.boundaries.length;
+    const missing = sizes.length - inserted;
+    const startNumber = Math.max(1, parseInt(startNumberInput.value,10) || 1);
+
+    const previewSource = result.text.substring(0, 30000);
+    preview.innerHTML = escapeHtml(previewSource)
+      .replace(/\[\[CHAP:(.*?)\]\]/g, '<span class="chap-label">$1</span>');
+
+    stats.innerHTML =
+      "<div class='stat'><b>"+sizes.length+"개</b><span>입력 회차</span></div>"+
+      "<div class='stat'><b>"+inserted+"개</b><span>추가된 화수</span></div>"+
+      "<div class='stat'><b>"+countChars(sourceText).toLocaleString()+"자</b><span>원문 글자</span></div>";
+
+    if(missing > 0){
+
+      const missingFrom = startNumber + inserted;
+
+      statusBox.className = "status err";
+      statusBox.innerHTML =
+        "<b>일부 회차만 처리되었습니다.</b>"+
+        "입력 "+sizes.length+"개 중 "+inserted+"개만 추가됨 (빠진 회차 "+missing+"개, "+missingFrom+"화부터)<br>"+
+        "남은 문단이 부족합니다 — 회차별 분량 기준과 실제 TXT 구조가 크게 다를 수 있습니다.";
+
+    } else if(result.uncertainChapters.length > 0){
+
+      statusBox.className = "status warn";
+      statusBox.innerHTML =
+        "<b>화수 추가 완료 (일부 경계 확인 필요)</b>"+
+        inserted+"개 회차를 처리했습니다.<br>"+
+        "다음 회차는 목표 글자수와 실제 문단 경계 차이가 커서 확인이 필요해요: "+
+        result.uncertainChapters.map(n=>n+"화").join(", ");
+
+    } else {
+
+      statusBox.className = "status ok";
+      statusBox.innerHTML =
+        "<b>화수 추가 완료!</b>"+
+        inserted+"개 회차를 처리했습니다. 미리보기에서 확인한 뒤 저장하세요.";
+    }
+
+    saveButton.style.display = "block";
+
+  }
+  catch(error){
+    console.error(error);
+    showError("처리 중 오류: "+error.message);
+  }
+
+});
+
+function showError(message){
+  statusBox.className = "status err";
+  statusBox.innerHTML = "<b>오류</b>"+message;
+}
+
+previewButton.addEventListener("click", function(){
+  if(preview.style.display === "block"){
+    preview.style.display = "none";
+    previewButton.textContent = "▶ 미리보기";
+  } else {
+    preview.style.display = "block";
+    previewButton.textContent = "▼ 미리보기";
+  }
+});
+
+saveButton.addEventListener("click", function(){
+
+  if(!resultText){
+    return;
+  }
+
+  let baseName = sourceName.replace(/\.txt$/i,"");
+  const outputName = baseName+"_화수추가.txt";
+
+  const blob = new Blob([resultText], { type:"text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = outputName;
+
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+});
+
+function escapeHtml(text){
+  return String(text)
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
+}
+
+function unescapeHtml(text){
+  return String(text)
+    .replace(/&amp;/g,"&")
+    .replace(/&lt;/g,"<")
+    .replace(/&gt;/g,">")
+    .replace(/&quot;/g,'"')
+    .replace(/&#039;/g,"'");
+}
+
+</script>
+
+</body>
+</html>
