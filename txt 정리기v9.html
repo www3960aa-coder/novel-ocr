@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>현판 텍본 정리기 v9</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{--bg:#f7f7fb;--card:#fff;--accent:#6c63ff;--accent2:#a78bfa;--border:#e0e0f0;--text:#222;--sub:#888;--radius:14px;}
+body{background:var(--bg);color:var(--text);font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;min-height:100vh;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0);}
+header{background:var(--accent);color:#fff;padding:18px 20px 14px;text-align:center;}
+header h1{font-size:1.15rem;font-weight:700;}
+header p{font-size:.78rem;opacity:.85;margin-top:3px;}
+.wrap{max-width:680px;margin:0 auto;padding:16px 14px 40px;}
+.card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:14px 14px 10px;margin-bottom:14px;}
+.card-title{font-size:.78rem;font-weight:700;color:var(--accent);margin-bottom:10px;}
+.opt-row{display:flex;flex-wrap:wrap;gap:8px;}
+label.opt{display:flex;align-items:center;gap:6px;font-size:.85rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 11px;}
+label.opt input{accent-color:var(--accent);}
+textarea{width:100%;min-height:180px;border:1px solid var(--border);border-radius:10px;padding:11px 12px;font-size:.9rem;font-family:inherit;resize:vertical;background:var(--bg);color:var(--text);}
+textarea:focus{outline:2px solid var(--accent2);}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+button{border:none;border-radius:10px;padding:11px 18px;font-size:.9rem;font-weight:700;cursor:pointer;font-family:inherit;}
+.btn-run{background:var(--accent);color:#fff;flex:1;}
+.btn-copy{background:#e8e6ff;color:var(--accent);}
+.btn-dl{background:#e8e6ff;color:var(--accent);}
+.btn-clear{background:#f0f0f0;color:#888;}
+#resultBox{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:.88rem;line-height:1.8;min-height:80px;max-height:55vh;overflow-y:auto;}
+#resultBox:focus{outline:2px solid var(--accent2);}
+#resultBox .para{margin-bottom:1em;white-space:pre-wrap;}
+#resultBox .para.quote-warn{background:rgba(255,193,7,.22);box-shadow:0 0 0 2px rgba(255,193,7,.5);border-radius:6px;padding:.2em .4em;}
+.warn-note{font-size:.76rem;color:#a56b00;margin-top:6px;display:none;}
+.warn-nav{display:none;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;}
+.warn-nav button{padding:6px 12px;font-size:.8rem;background:#fff3cd;color:#8a5a00;border:1px solid #f0d38a;}
+.warn-nav .warn-pos{font-size:.8rem;color:#8a5a00;font-weight:700;}
+.warn-nav .warn-reason{font-size:.76rem;color:#a56b00;}
+#resultBox .para.quote-warn.active{box-shadow:0 0 0 3px #ff9800;}
+.stats{font-size:.76rem;color:var(--sub);margin-top:6px;}
+</style>
+</head>
+<body>
+<header>
+  <h1>📄 현판 텍본 정리기 v9</h1>
+  <p>현판소설 TXT 한 번에 정리</p>
+</header>
+<div class="wrap">
+
+  <div class="card">
+    <div class="card-title">정리 옵션</div>
+    <div class="opt-row">
+      <label class="opt"><input type="checkbox" id="optSentenceSplit" checked> 문장 끝마다 줄바꿈</label>
+      <label class="opt"><input type="checkbox" id="optBlankLines" checked> 과다 빈 줄 정리</label>
+      <label class="opt"><input type="checkbox" id="optQESplit" checked> ?/! 뒤 붙은 내용 분리</label>
+    </div>
+    <div style="margin-top:10px;font-size:.78rem;color:var(--sub);">
+      빈 줄 최대
+      <select id="maxBlank" style="font-size:.78rem;border-radius:6px;border:1px solid var(--border);padding:2px 6px;">
+        <option value="1">1개</option>
+        <option value="2" selected>2개</option>
+        <option value="3">3개</option>
+      </select>
+      로 제한
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">입력</div>
+    <div class="btn-row" style="margin-bottom:8px;">
+      <button class="btn-copy" onclick="document.getElementById('fileInput').click()">📂 파일 열기</button>
+      <input type="file" id="fileInput" accept=".txt" style="display:none" onchange="loadFile(this)">
+      <span id="fileName" style="font-size:.78rem;color:var(--sub);align-self:center;"></span>
+    </div>
+    <textarea id="inputBox" placeholder="여기에 텍본 내용을 붙여넣으세요..."></textarea>
+    <div class="btn-row">
+      <button class="btn-run" onclick="runFix()">✨ 정리 실행</button>
+      <button class="btn-clear" onclick="document.getElementById('inputBox').value='';document.getElementById('resultBox').innerHTML='결과가 여기 표시됩니다.';document.getElementById('stats').textContent='';document.getElementById('warnNote').style.display='none';">지우기</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">결과</div>
+    <div id="resultBox" contenteditable="true">결과가 여기 표시됩니다.</div>
+    <div class="warn-note" id="warnNote">🟡 노란 배경 = 따옴표 개수가 안 맞는 문단이에요. 눌러서 바로 고칠 수 있어요.</div>
+    <div class="warn-nav" id="warnNav">
+      <button onclick="gotoWarn(-1)">◀ 이전</button>
+      <span class="warn-pos" id="warnPos"></span>
+      <button onclick="gotoWarn(1)">다음 ▶</button>
+      <span class="warn-reason" id="warnReason"></span>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="btn-row" style="margin-top:10px;">
+      <button class="btn-copy" onclick="copyResult()">📋 복사</button>
+      <button class="btn-dl" onclick="downloadResult()">💾 TXT 저장</button>
+      <button class="btn-clear" onclick="clearWarnMarks()">표시 지우기</button>
+    </div>
+  </div>
+
+</div>
+<script>
+var _loadedTitle='';  // v7: 저장 파일명에 쓸 소설 제목(불러온 파일명에서 확장자 뺀 것)
+function loadFile(input){
+  var file=input.files[0];
+  if(!file) return;
+  document.getElementById('fileName').textContent=file.name;
+  _loadedTitle=file.name.replace(/\.[^.]+$/,'');
+  var reader=new FileReader();
+  reader.onload=function(e){document.getElementById('inputBox').value=e.target.result;};
+  reader.readAsText(file,'UTF-8');
+}
+
+// v4: 문장 종결 뒤 분리 — 전면 재작성.
+// v3의 문제: "다음 문장이 시작하는지" 판단할 때 반듯한 따옴표(" ')와 한글만 인식하고
+// 소설에서 실제로 쓰는 둥근 따옴표(“ ” ‘ ’)와 「 『 【 《 는 인식하지 못해서,
+// 대사가 있는 대부분의 문장에서 줄바꿈이 전혀 되지 않았음(=거의 동작 안 함).
+// 새 규칙: [한글][마침표류(·… 말줄임표 포함)][닫는 따옴표류]* 뒤에
+// [한글/영문/숫자/여는 따옴표류]가 이어지면 그 사이에서 줄바꿈.
+// 앞 글자를 '한글'로 한정해서 숫자(3.14)나 영문 약어(Mr. U.S.A)는 자동으로 걸러짐.
+// 따옴표 하나만으로는(예: '새로'라는) 절대 자르지 않음 — 마침표류가 실제로 있을 때만 자름.
+function splitSentences(line){
+  var TERM=/([가-힣])((?:[·…]*[.!?]+|[·…]{2,}))((?:["'”’」』】》])*)\s*(?=[가-힣a-zA-Z0-9"'“‘「『【《\[])/g;
+  return line.replace(TERM,function(m){return m.replace(/\s+$/,'')+'\n\n';});
+}
+
+function runFix(){
+  var text=document.getElementById('inputBox').value;
+  if(!text.trim()){alert('텍본을 붙여넣어 주세요.');return;}
+  var before=text.split('\n').length;
+
+  text=text.replace(/\r\n/g,'\n');
+
+  // 1. 문장 끝마다 줄바꿈 (줄 단위로 처리)
+  // v5: '-'로 시작하는 대사 줄(예: "-비올레타. 거기 있어?")은 한 사람이 한 번에
+  // 말한 대사라서 문장이 여러 개여도 쪼개지 않고 그대로 둠. 그 외 줄은 기존대로
+  // 문장 끝마다 나눔.
+  if(document.getElementById('optSentenceSplit').checked){
+    var lines=text.split('\n');
+    var out=[];
+    for(var i=0;i<lines.length;i++){
+      var l=lines[i];
+      if(l.trim()===''){out.push(l);continue;}
+      // v9: '-'로 시작하는 줄뿐 아니라, 따옴표(대사)로 시작하는 줄도 통째로 유지.
+      // 한 대사 안에 문장이 여러 개(예: "죄송해요. 아까는...") 있어도, 이미 원문에서
+      // 그 대사 전체가 한 줄(문단)로 분리돼 있다면 그 안에서 또 쪼개지 않음.
+      if(/^\s*[-—–]\s*\S/.test(l)){out.push(l);continue;}
+      if(/^\s*["'“‘「『【《]/.test(l)){out.push(l);continue;}
+      out.push(splitSentences(l));
+    }
+    text=out.join('\n');
+  }
+
+  // 2. 과다 빈 줄 정리
+  if(document.getElementById('optBlankLines').checked){
+    var max=parseInt(document.getElementById('maxBlank').value)||2;
+    var rep='\n'.repeat(max+1);
+    // 연속 빈 줄 → max개
+    text=text.replace(/\n{3,}/g,function(m){
+      return m.length-1>max?rep:m;
+    });
+  }
+
+  // 3. ?/! 뒤 붙은 내용 분리 (sentenceSplit 미체크 시 단독 동작)
+  if(document.getElementById('optQESplit').checked&&!document.getElementById('optSentenceSplit').checked){
+    text=text.replace(/([?!！？]+)((?:["'”’」』】》])*)\s*(?=[가-힣a-zA-Z0-9"'“‘「『【《\[])/g,function(m){return m.replace(/\s+$/,'')+'\n\n';});
+  }
+
+  var warnCount=renderResult(text);
+  var after=text.split('\n').length;
+  document.getElementById('stats').textContent='입력 '+before+'줄 → 출력 '+after+'줄'+(warnCount?' · 따옴표 확인 필요 '+warnCount+'곳':'');
+  document.getElementById('warnNote').style.display=warnCount?'block':'none';
+}
+
+// v6: 결과를 문단(줄바꿈 두 번 기준) 단위 div로 나눠서 표시.
+// 각 문단의 따옴표 개수가 안 맞으면 quote-warn 클래스로 노란 표시를 달아
+// 사용자가 결과창에서 바로 클릭해 고칠 수 있게 함(contenteditable).
+function escapeHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function isQuoteImbalanced(p){return quoteDiagnosis(p).length>0;}
+// v8: 어떤 따옴표가 몇 개 남는지 알려주는 진단 — '하나하나 세어보는 수고'를 줄여줌.
+function quoteDiagnosis(p){
+  function cnt(ch){var m=p.match(new RegExp(ch,'g'));return m?m.length:0;}
+  var out=[];
+  function checkPair(open,close,label){
+    var o=cnt(open),c=cnt(close);
+    if(o!==c) out.push(label+' '+Math.abs(o-c)+'개 '+(o>c?'여는 쪽('+open+')':'닫는 쪽('+close+')')+'이 더 많음');
+  }
+  checkPair('\u201C','\u201D','“ ”');
+  checkPair('\u2018','\u2019','‘ ’');
+  if(cnt('"')%2!==0) out.push('" 개수가 홀수(짝이 안 맞음)');
+  if(cnt("'")%2!==0) out.push("' 개수가 홀수(짝이 안 맞음)");
+  checkPair('「','」','「 」');
+  checkPair('『','』','『 』');
+  checkPair('【','】','【 】');
+  checkPair('《','》','《 》');
+  return out;
+}
+var _warnEls=[]; var _warnIdx=-1;
+function gotoWarn(dir){
+  if(!_warnEls.length) return;
+  if(_warnIdx>=0 && _warnEls[_warnIdx]) _warnEls[_warnIdx].classList.remove('active');
+  _warnIdx=(_warnIdx+dir+_warnEls.length)%_warnEls.length;
+  var el=_warnEls[_warnIdx];
+  el.classList.add('active');
+  el.scrollIntoView({behavior:'smooth',block:'center'});
+  document.getElementById('warnPos').textContent=(_warnIdx+1)+' / '+_warnEls.length;
+  var reasons=quoteDiagnosis(el.innerText);
+  document.getElementById('warnReason').textContent=reasons.join(', ');
+}
+function renderResult(text){
+  var paragraphs=text.split(/\n{2,}/);
+  var warnCount=0;
+  var html=paragraphs.map(function(p){
+    if(p.trim()==='') return '';
+    var bad=isQuoteImbalanced(p);
+    if(bad) warnCount++;
+    var esc=escapeHtml(p).replace(/\n/g,'<br>');
+    return '<div class="para'+(bad?' quote-warn':'')+'">'+esc+'</div>';
+  }).filter(Boolean).join('');
+  document.getElementById('resultBox').innerHTML=html||'결과가 여기 표시됩니다.';
+  _warnEls=Array.prototype.slice.call(document.querySelectorAll('#resultBox .quote-warn'));
+  _warnIdx=-1;
+  document.getElementById('warnNav').style.display=_warnEls.length?'flex':'none';
+  document.getElementById('warnPos').textContent=_warnEls.length?('- / '+_warnEls.length):'';
+  document.getElementById('warnReason').textContent='';
+  return warnCount;
+}
+// 결과창(contenteditable)에서 문단 div들을 다시 읽어 순수 텍스트로 합침.
+// 사용자가 직접 고친 내용이 그대로 반영됨.
+function getResultText(){
+  var box=document.getElementById('resultBox');
+  var paras=box.querySelectorAll('.para');
+  if(!paras.length) return box.innerText||'';
+  var arr=[];
+  paras.forEach(function(p){arr.push(p.innerText);});
+  return arr.join('\n\n');
+}
+function clearWarnMarks(){
+  document.querySelectorAll('#resultBox .quote-warn').forEach(function(el){el.classList.remove('quote-warn','active');});
+  document.getElementById('warnNote').style.display='none';
+  document.getElementById('warnNav').style.display='none';
+  _warnEls=[]; _warnIdx=-1;
+}
+
+function copyResult(){
+  var t=getResultText();
+  if(!t||t==='결과가 여기 표시됩니다.'){alert('먼저 정리 실행을 해주세요.');return;}
+  navigator.clipboard.writeText(t).then(function(){alert('복사됐어요!');});
+}
+
+function downloadResult(){
+  var t=getResultText();
+  if(!t||t==='결과가 여기 표시됩니다.'){alert('먼저 정리 실행을 해주세요.');return;}
+  var blob=new Blob([t],{type:'text/plain;charset=utf-8'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  // v7: 파일을 불러왔을 때는 원래 파일명(소설 제목)을 그대로 쓰고 뒤에 '_정리됨'만 붙임.
+  // 파일을 안 불러오고 텍스트만 붙여넣었을 때는 예전처럼 '정리된_텍본'.
+  a.download=(_loadedTitle?_loadedTitle+'_정리됨':'정리된_텍본')+'.txt';
+  a.click();
+}
+</script>
+</body>
+</html>
