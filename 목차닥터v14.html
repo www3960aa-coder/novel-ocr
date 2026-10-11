@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<!--
+================================================================
+목차 닥터 v14  (목차닥터_v14.html)
+================================================================
+[이 도구가 하는 일]
+- 목차가 없거나 깨진 EPUB을 올리면, 본문(챕터 파일)은 한 글자도 건드리지 않고 '목차 파일(nav.xhtml, toc.ncx)'과
+  '책 정보 파일(content.opf)의 목차 연결'만 새로 만들어서 다시 저장한다. (다시 추출해서 다시 만들 필요 없음)
+- 읏쇼로 만든 EPUB이 아니어도 열린다(container.xml -> opf -> spine 순서로 읽음).
+
+[흐름]
+1) 업로드 -> loadEpub: container.xml / opf / spine / (있으면) 기존 목차(nav/ncx) 읽기
+2) 각 챕터 파일을 분석(analyze): 제목 태그(h1~h3), <title>, 첫 줄, 파일명, 기존 목차 이름 후보를 뽑음
+3) 목차 줄 목록(entries)을 만들고 화면에서 제목 수정 / 목차에 넣기·빼기
+4) 내보내기 -> exportEpub: nav.xhtml + toc.ncx 생성, opf 수정(manifest/spine toc/version 3.0), 새 EPUB 저장
+
+[수정 규칙 - 다음 세션 참고]
+- 챕터 본문 파일은 원칙적으로 안 건드림. 예외: '한 파일 안의 제목마다 목차' 옵션에서 id가 없는 제목(h1~h3)에
+  id="utsho-toc-N" 속성만 추가(문자열 삽입, 나머지는 그대로). 제목 개수가 DOM과 정규식에서 다르면 그 파일은 건너뜀.
+- 기존 nav/ncx 파일이 있으면 같은 경로에 덮어쓰고(링크는 그 파일 위치 기준 상대경로로 다시 계산), 없으면 opf와 같은 폴더에 새로 만듦.
+- opf는 DOM으로 고침. 책 ID(dc:identifier)와 ncx의 dtb:uid를 반드시 같게 함
+  (예전에 둘이 달라서 앱이 목차를 안 읽던 사례가 있었음).
+- 저장 파일 이름은 책 제목(dc:title), 없으면 올린 파일 이름.
+
+[v14 수정 내용]  (2026-10-11)
+- 화면 위쪽 정리 (사용자 요청: 스크롤이 길어서 줄 목록이 안 보임):
+  1) '① 제목을 어디서 가져올까요?' 선택칸은 화면에서 숨김(display:none). 기능은 그대로 '자동'으로 동작함(titleSource 요소는 남겨둠 - 코드가 참조함).
+  2) 그 자리에 '저장 파일 이름' 칸 1개 추가: "[작가명] 제목"으로 자동 채움(dc:creator + dc:title). 고치면 그 이름으로 저장. 작가가 없으면 제목만.
+     저장 때(exportEpub) saveName 값을 쓰고, 비어 있으면 예전처럼 책 제목/올린 파일 이름을 씀.
+  3) '② 한 파일에 화가 여러 개' + '책 안의 군더더기 페이지'(표지 페이지 고치기/제목만 있는 페이지/책 속 목차 페이지)를 '세부 설정' 하나로 묶어 기본 접힘. 접혀 있어도 체크 기본값은 그대로 적용됨.
+  4) '③ 한 번에 정리하기'는 다시 기본 펼침으로 되돌림(v13에선 접힘이었음). 접고 펼 수는 있음.
+- 바뀐 곳: 위쪽 HTML 구조, bookAuthor/saveName 코드(불러오기·저장 부분 몇 줄), CSS 몇 줄. 나머지 기능은 v13과 동일.
+[v13 수정 내용]  (2026-10-11)
+- '③ 한 번에 정리하기'를 접고 펼 수 있게 바꿈(<details>, 기본은 접힘). 필요할 때만 눌러서 열면 되고, 접어두면 ④ 줄 목록이 바로 보임.
+- 'Cover 글씨 꾸미기' 보강: 제목이 정확히 Cover인 줄만 찾던 것(v12) -> 표지/커버/Cover Page 같은 이름도 바꿈.
+  그런 이름이 하나도 없으면, 첫 번째 줄이 cover 파일이거나 이미지만 있는 페이지일 때 그 줄을 바꿈. (원본 EPUB의 표지 줄이 '표지'로 돼 있어서 "Cover인 줄이 없어요"가 떴던 문제)
+- 바뀐 곳: ③ 영역 HTML(<details>)과 CSS, styleCover() 함수뿐.
+[v12 수정 내용]  (2026-10-11)
+- '③ 한 번에 정리하기'에 버튼 2개 추가 (v11의 기호 바는 그대로):
+  1) '⋆권 이름 정리': 제목이 "…N권"으로 끝나는 줄(예: 족쇄 같은 그대 1권)을 "⋆N권⋆"으로 한 번에 바꿈. 앞의 책 제목은 지움. 이미 ⋆N권⋆이면 그대로, "N권"으로 안 끝나는 줄(01. 위화감 등)은 안 건드림.
+  2) 'Cover 글씨 꾸미기': 제목이 Cover인 줄을 굵고 기울어진 글씨 𝘾𝙤𝙫𝙚𝙧 로 바꿈 (뉴읏쇼 표지 목차 이름처럼 보이게).
+     목차 글씨는 CSS로 꾸밀 수 없어서 '굵은 기울임 유니코드 문자'(Mathematical Sans-Serif Bold Italic, U+1D63E 등)를 그대로 제목 글자로 씀.
+     원래 글자 Cover로 되돌리려면 그 줄의 '원래목차'/'파일' 후보 버튼을 누르거나 직접 Cover로 입력.
+  - 구현: stripVolNames(), styleCover() 두 함수만 맨 아래에 추가. 내보내기(exportEpub)는 안 건드림 (clean()이 이 문자를 지우지 않음 확인).
+[v11 수정 내용]  (2026-10-11)
+- 제목 줄 위에 '기호 바' 추가(제목 목록 위에 붙어서 스크롤해도 따라옴):
+  1) ⋆ 버튼: 지금 눌러둔 제목 칸의 커서 위치에 ⋆를 바로 넣고, 동시에 클립보드에도 복사함(제목 칸을 안 눌렀으면 복사만 함).
+  2) ⋆로 감싸기 버튼: 눌러둔 제목 칸의 글자 앞뒤에 ⋆를 붙임 (예: 3권 -> ⋆3권⋆). 이미 감싸져 있으면 다시 누를 때 벗김.
+  - 구현: lastIn(마지막으로 누른 제목 입력칸)을 focusin으로 기억, 넣은 뒤 entries[i].title도 같이 갱신(render() 안 부름 = 키보드/커서 유지).
+  - 기존 기능(표지 연결 보정 등 v10 내용)은 그대로. 바뀐 곳은 기호 바 HTML/CSS와 맨 아래 symbar 스크립트뿐.
+[v10 수정 내용]  (2026-10-11, 리디북스 서재 표지 안 뜨던 문제 해결 확인됨)
+- 증상: 'EPUB 툴킷'의 표지 복구로 고친 epub이 책 안 속표지는 나오는데, 서재(홈) 표지 썸네일은 안 뜸.
+- 원인(추정): 서재 표지는 목차/속표지(cover.xhtml)와 무관하게 opf의 <meta name="cover" content="아이디"/> 가 '이미지 항목'을 가리키고,
+  그 이미지 manifest 항목에 properties="cover-image"가 있어야 뜸. v9의 ensureCoverMeta()는 meta cover의 아이디가 manifest에 '존재'하기만 하면
+  정상으로 보고 그냥 넘어가서, xhtml을 가리키거나 cover-image 속성이 엉뚱한 항목에 있는 경우를 못 고쳤음.
+- 수정(ensureCoverMeta 함수만 바뀜, 나머지 기능은 v9와 동일):
+  1) cover-image 속성이 이미지가 아닌 항목(예: cover.xhtml)에 붙어 있으면 그 속성을 제거.
+  2) meta cover가 '이미지 항목(media-type이 image/*)'을 가리킬 때만 정상으로 인정. 아니면 표지 이미지를 다시 찾아서 연결
+     (찾는 순서: id/파일명에 cover가 든 이미지 -> 첫 페이지 안의 이미지).
+  3) cover-image 속성은 최종 표지 이미지 항목 한 곳에만 남기고 다른 항목에서는 제거.
+- 화면 제목(<title>)과 맨 위 헤더(<h1>)도 v10으로 맞춤 (처음엔 파일명만 v10이고 안쪽 표기는 v9였음).
+- 참고: 목차 항목 이름(Cover/표지 등)과 <title>/헤더 글자는 서재 표지와 상관없음. 리디는 예전 표지를 캐시할 수 있어 책 삭제 후 재등록해야 할 때가 있음.
+[v9 수정 내용]
+- 한 파일을 가리키는 목차 줄이 여러 개일 때(예: '1권'과 그 첫 장 '01. 위화감'이 같은 파일) 줄을 합치지 않고 전부 유지(원래 목차의 이름/단계 그대로).
+  (v8까지는 같은 파일이면 첫 줄만 남아서 v7로 만든 EPUB을 다시 올리면 '01. 위화감'이 사라졌음)
+- '표지 페이지 고치기' 체크 추가(감지될 때만 보임, 기본 체크): 첫 페이지가 <svg><image/></svg> 방식 표지면 일반 <img> 방식으로 다시 씀
+  (Fileloom 등에서 책 첫 페이지가 하얗게 보이던 문제 대응. 뉴읏쇼 cover_page.xhtml과 같은 구조).
+[v8 수정 내용]
+- 표지 연결 보정(자동): opf에 <meta name="cover">가 없으면 표지 이미지(이름에 cover가 든 이미지, 없으면 첫 페이지 안의 이미지)를 찾아
+  <meta name="cover" content="아이디"/> 와 manifest properties="cover-image"를 추가 → 서재/뷰어에서 표지 썸네일이 안 뜨던 문제 대응.
+  이미 올바르게 연결돼 있으면 건드리지 않음.
+[v7 수정 내용]
+- '제목만 있는 페이지 빼기' 체크 추가(기본 체크): 글자 40자 미만·이미지 없는 챕터 페이지(예: '1권' 한 줄 페이지)를 읽는 순서(spine)에서 빼고,
+  목차(nav/ncx) 줄은 남기되 링크를 바로 뒤의 첫 본문 페이지로 옮김 → 뷰어 목차에는 '1권'이 보이고 소설 안에서는 안 보임. 맨 마지막 페이지는 안 뺌.
+- 체크 영역 이름 '책 안의 군더더기 페이지'로 통합(목차 페이지 / 제목만 있는 페이지 각각 따로 켜고 끔).
+[v6 수정 내용]
+- 같은 이름(<title>)이 3개 이상 파일에 똑같이 들어있으면(예: '족쇄 같은 그대 1권' 이 여러 페이지에) '공통이름'으로 보고 자동 제목에서 제외 → 줄마다 같은 제목이 반복돼 헷갈리던 문제 수정.
+  제목 후보가 없으면 첫 줄(기호만이면 제외) → 파일명 순서.
+- 줄 위에 종류 표시 추가: '책 속 목차 페이지' / '제목만 있는 페이지(글자 거의 없음)' / '이어지는 본문(제목 없음)'.
+[v5 수정 내용]
+- '책 안의 목차 페이지 빼기/넣기' 체크 추가(감지된 책에서만 보임, 기본 체크=빼기). 첫 줄이 '목차/차례/Contents'이고 3000자 미만인 챕터 페이지를
+  spine(읽는 순서)에서 itemref만 제거. 파일/manifest는 그대로 둠. 빼면 그 페이지는 목차 줄에서도 빠짐. 저장본은 이미 뺀 상태이므로 되돌리려면 원본을 다시 올릴 것.
+[v4 수정 내용]
+- 이름 '목차 닥터'로 변경(화면 제목·탭·파일명 통일: 목차닥터_v4.html). 색을 보라 → 청록으로 변경.
+- 계층 목차 지원: 원래 목차(ncx/nav)의 단계를 읽어서 유지하고, 줄마다 ◀▶ 버튼으로 단계 조절(최대 3단). nav/ncx를 중첩으로 저장(dtb:depth 반영).
+  (이전 v3은 계층 목차를 한 줄로 납작하게 만들어서 1권>장 구조가 사라졌음)
+- opf 구조 오류 자동 수정: <metadata> 안에 <manifest>/<spine>/<guide>가 들어있는 파일(calibre 합본 등)을 package 바로 아래로 옮김,
+  비표준 media-type 'origrootfile/xml' 항목 제거. (이게 앱에서 안 열리던 원인일 가능성)
+- content.opf 읽기 오류 시 이유 표시, rootfile 경로 앞 '/' 처리, BOM 제거.
+[v3 수정 내용]
+- ③ 버튼 설명을 한 줄에 다 붙이지 않고, 버튼마다 오른쪽에 진한 글씨로 따로 표시(표 형태). 버튼 이름 짧게 정리.
+[v2 수정 내용]
+- 화면 설명을 ①~④ 단계로 쉽게 바꿈(옵션 이름·설명 문구, 선택한 제목 출처 설명 표시).
+- 줄마다 제목 후보 버튼(제목/원래목차/첫줄/페이지명/파일) 추가 → 눌러서 바로 적용.
+- 새 버튼: 표지·이미지만 있는 줄 빼기, <> 꺾쇠 지우기.
+[v1 수정 내용]
+- 첫 버전.
+================================================================
+-->
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>목차 닥터 v14</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<style>
+:root{--p:#0f9d8f;--bg:#f3fbfa;--bd:#d3e9e6;--tx:#2a2733;--mu:#6b6680;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:'Malgun Gothic',-apple-system,sans-serif;}
+header{background:linear-gradient(135deg,#19b3a3,#0c7f8a);color:#fff;padding:18px 16px 14px;}
+header h1{margin:0;font-size:1.25rem;} header p{margin:4px 0 0;font-size:.8rem;opacity:.85;}
+.wrap{max-width:720px;margin:0 auto;padding:14px;}
+.card{background:#fff;border:1px solid var(--bd);border-radius:16px;padding:14px;margin-bottom:12px;}
+.btn{border:1px solid var(--bd);background:#fff;border-radius:10px;padding:9px 12px;font-size:.88rem;cursor:pointer;font-family:inherit;}
+.btn.primary{background:var(--p);color:#fff;border-color:var(--p);font-weight:700;}
+.upload-btn{display:inline-block;background:var(--p);color:#fff;border-radius:12px;padding:12px 18px;font-weight:700;cursor:pointer;}
+.upload-btn input{display:none;}
+.msg{font-size:.82rem;color:var(--mu);margin-top:8px;line-height:1.5;}
+.row-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px;}
+select,input[type=text]{font-family:inherit;font-size:.9rem;border:1px solid var(--bd);border-radius:8px;padding:7px 9px;background:#fff;}
+.toc-row{display:flex;gap:8px;align-items:flex-start;padding:9px 0;border-bottom:1px dashed var(--bd);}
+.toc-row:last-child{border-bottom:none;}
+.toc-row.off{opacity:.45;}
+.toc-row input[type=checkbox]{margin-top:9px;width:18px;height:18px;flex:none;}
+.toc-body{flex:1;min-width:0;}
+.toc-body input[type=text]{width:100%;font-weight:700;}
+.step{padding:10px 0;border-top:1px solid var(--bd);font-size:.88rem;} .step:first-of-type{border-top:none;} .step select{display:block;width:100%;margin-top:6px;}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;} .chip{border:1px solid var(--bd);background:#e6f6f3;border-radius:999px;padding:2px 9px;font-size:.72rem;cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:inherit;} .chip small{color:var(--mu);margin-right:3px;}
+.acts{margin-top:8px;border:1px solid #b5dcd6;border-radius:12px;overflow:hidden;} .act{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid #d3e9e6;} .act:last-child{border-bottom:none;} .act .btn{flex:none;width:9.5em;font-weight:700;color:#0b6b61;border-color:#8fcfc6;background:#e3f5f2;padding:8px 6px;} .act span{font-size:.8rem;color:#3d3950;line-height:1.35;}
+.hint{font-size:.72rem;color:var(--mu);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.num{flex:none;width:26px;text-align:right;color:var(--mu);font-size:.72rem;margin-top:11px;}
+.sticky{position:sticky;bottom:0;background:linear-gradient(transparent,var(--bg) 30%);padding:14px 0 10px;}
+.sticky .btn{width:100%;padding:13px;font-size:1rem;}
+label.opt{font-size:.82rem;display:inline-flex;align-items:center;gap:5px;cursor:pointer;}
+.symbar{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:#fff;border:1px solid var(--bd);border-radius:12px;padding:8px 10px;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,.06);}
+.symbar b{font-size:.8rem;color:var(--mu);}
+.symbar .btn{padding:7px 14px;font-size:1.05rem;font-weight:700;color:#0b6b61;border-color:#8fcfc6;background:#e3f5f2;}
+.symbar .btn.w{font-size:.85rem;}
+#symMsg{font-size:.76rem;color:var(--mu);flex:1;min-width:8em;}
+details.step>summary{cursor:pointer;list-style:none;padding:2px 0;}
+details.step>summary::-webkit-details-marker{display:none;}
+details.step>summary::before{content:"\25B6  ";color:var(--p);}
+details.step[open]>summary::before{content:"\25BC  ";}
+.sumhint{font-size:.74rem;color:var(--mu);font-weight:400;}
+</style>
+</head>
+<body>
+<header>
+  <h1>📑 목차 닥터 v14</h1>
+  <p>목차가 없거나 깨진 EPUB → 본문은 그대로, 목차만 새로 만들기</p>
+</header>
+<div class="wrap">
+  <div class="card">
+    <label class="upload-btn">📂 EPUB 올리기<input type="file" id="epubInput" accept=".epub"></label>
+    <div class="msg" id="status">목차를 고칠 EPUB을 올려주세요.</div>
+  </div>
+
+  <div id="main" style="display:none;">
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:4px;" id="bookTitle"></div>
+      <div class="msg" id="oldTocInfo"></div>
+      <div class="step"><b>저장 파일 이름</b>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:6px;"><input type="text" id="saveName" placeholder="[작가명] 제목" style="flex:1;min-width:0;font-weight:700;"><span style="font-size:.85rem;color:var(--mu);">.epub</span></div>
+        <div class="msg">[작가명] 제목 형식으로 자동으로 채워져요. 고치면 그 이름으로 저장돼요.</div>
+      </div>
+      <div class="step" style="display:none;"><b>① 제목을 어디서 가져올까요?</b>
+        <select id="titleSource" onchange="autoTitles();srcDesc()">
+          <option value="auto">자동 (알아서 가장 좋은 걸로)</option>
+          <option value="heading">본문 속 제목 글자 (h1~h3)</option>
+          <option value="titleTag">페이지 이름 (&lt;title&gt;)</option>
+          <option value="firstLine">본문 맨 첫 줄</option>
+          <option value="existing">원래 있던 목차 이름</option>
+          <option value="fileName">파일 이름 (Section0001 같은)</option>
+        </select>
+        <div class="msg" id="srcDesc"></div>
+      </div>
+      <details class="step" id="advBox"><summary><b>⚙ 세부 설정</b> <span class="sumhint">(②·군더더기 페이지 · 기본값 그대로 적용돼요)</span></summary>
+      <div style="margin-top:8px;"><b>② 한 파일에 화가 여러 개 들어있나요?</b>
+        <label class="opt"><input type="checkbox" id="perHeading" onchange="rebuildEntries()"> 파일 안의 제목마다 목차 줄 따로 만들기</label>
+        <div class="msg">책이 파일 1개에 전체가 들어있고 안에 "1화, 2화…" 제목이 여러 개일 때 체크해요. 보통 파일 1개 = 화 1개면 체크 안 해도 돼요.</div>
+      </div>
+      <div id="tocPageStep" style="display:none;margin-top:10px;padding-top:10px;border-top:1px dashed var(--bd);"><b>＋ 책 안의 군더더기 페이지</b>
+        <div id="svgCoverRow" style="display:none;margin-top:6px;"><label class="opt"><input type="checkbox" id="fixSvgCover" checked> 표지 페이지 고치기 (안 보일 때)</label>
+        <div class="msg">책을 열었을 때 맨 앞 표지 페이지가 하얗게 비어 보이는 경우가 있어요(그림이 특수한 방식으로 들어가 있을 때). 같은 그림을 일반 방식으로 다시 넣어요.</div></div>
+        <div id="titlePageRow" style="display:none;margin-top:6px;"><label class="opt"><input type="checkbox" id="dropTitlePages" checked onchange="render()"> 제목만 있는 페이지 빼기 (<span id="titlePageCount">0</span>곳)</label>
+        <div class="msg">"1권" 처럼 글자 한 줄만 있는 페이지를 본문에서 빼요. 앱 목차에는 그대로 남고, 누르면 그 권의 첫 내용으로 이동해요.</div></div>
+        <div id="tocPageRow" style="display:none;margin-top:8px;">
+        <label class="opt" style="margin-top:6px;"><input type="checkbox" id="dropTocPages" checked onchange="render()"> 책 속 목차 페이지 빼기 (<span id="tocPageCount">0</span>곳)</label>
+        <div class="msg">책 본문 사이에 끼어 있는 "목차" 글자 페이지(권마다 있는 경우 많음)를 읽는 순서에서 빼요. 앱의 목차 메뉴에서 이동하면 되니까 없어도 돼요. 체크를 끄면 그대로 둬요.</div></div>
+      </div>
+      </details>
+      <details class="step" id="batchBox" open><summary><b>③ 한 번에 정리하기</b> <span class="sumhint">(눌러서 접기/열기)</span></summary>
+        <div class="acts">
+          <div class="act"><button class="btn" onclick="setAll(true)">전체 넣기</button><span>모든 줄 체크 켜기</span></div>
+          <div class="act"><button class="btn" onclick="setAll(false)">전체 빼기</button><span>모든 줄 체크 끄기</span></div>
+          <div class="act"><button class="btn" onclick="dropImgOnly()">표지·이미지 빼기</button><span>글자 없이 그림만 있는 페이지(표지 등)를 목차에서 제외</span></div>
+          <div class="act"><button class="btn" onclick="stripBrackets()">꺾쇠 지우기</button><span>&lt;1화&gt; → 1화</span></div>
+          <div class="act"><button class="btn" onclick="fillBlank()">빈 제목 채우기</button><span>제목이 빈 줄에 1화, 2화… 순서대로 번호</span></div>
+          <div class="act"><button class="btn" onclick="stripVolNames()">⋆권 이름 정리</button><span>족쇄 같은 그대 1권 → ⋆1권⋆ (책 제목 지우고 ⋆로 감쌈)</span></div>
+          <div class="act"><button class="btn" onclick="styleCover()">Cover 글씨 꾸미기</button><span>Cover → 𝘾𝙤𝙫𝙚𝙧 (굵고 기울어진 글씨)</span></div>
+          <div class="act"><button class="btn" onclick="autoTitles()">제목 전부 다시 찾기</button><span>직접 고친 제목도 ①번 선택 기준으로 되돌림</span></div>
+        </div>
+      </details>
+      <div class="step"><b>④ 줄마다 확인</b>
+        <div class="msg">체크 = 목차에 넣기. 제목은 눌러서 직접 고치고, 작은 버튼(후보)을 누르면 그 글자로 바뀌어요. ▶ 하위로 넣기 = 위 줄 아래에 들어가는 계층 목차(예: 1권 아래 1장). 원래 목차에 계층이 있으면 그대로 유지돼요.</div>
+      </div>
+    </div>
+
+    <div class="symbar"><b>기호</b><button class="btn" type="button" onmousedown="event.preventDefault()" onclick="putSym(false)">⋆</button><button class="btn w" type="button" onmousedown="event.preventDefault()" onclick="putSym(true)">⋆로 감싸기</button><span id="symMsg">제목 칸을 누른 뒤 ⋆를 누르면 바로 들어가고, 복사도 돼요.</span></div>
+    <div class="card" id="list"></div>
+    <div class="sticky"><button class="btn primary" onclick="exportEpub()">💾 목차 고쳐서 저장</button></div>
+  </div>
+</div>
+
+<script>
+const NS_OPF='http://www.idpf.org/2007/opf';
+let zip=null,fileName='',opfPath='',opfDir='',opfDoc=null,bookTitle='',bookAuthor='';
+let spine=[];
+let oldDepth=new Map(), oldList=new Map();
+let oldToc=new Map();
+let entries=[];
+let tocInfo={ncx:null,nav:null};
+
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const dirname=p=>p.includes('/')?p.slice(0,p.lastIndexOf('/')):'';
+function resolvePath(baseDir,href){
+  href=decodeURIComponent(href.split('#')[0]);
+  const parts=(baseDir?baseDir.split('/'):[]).concat(href.split('/')),out=[];
+  for(const s of parts){ if(s===''||s==='.') continue; if(s==='..') out.pop(); else out.push(s); }
+  return out.join('/');
+}
+function relPath(fromDir,target){
+  const a=fromDir?fromDir.split('/'):[],b=target.split('/');
+  let i=0; while(i<a.length&&i<b.length-1&&a[i]===b[i]) i++;
+  return a.slice(i).map(()=>'..').concat(b.slice(i)).map(encodeURIComponent).join('/');
+}
+const GENERIC=/^(알 수 없음|unknown|untitled|document|section\d*|chapter\d*|page[-_ ]?\d*|cover|title|제목 없음|no title)$/i;
+const clean=s=>(s||'').replace(/[\s ⁠-⁤​-‏﻿]+/g,' ').trim();
+
+document.getElementById('epubInput').addEventListener('change',async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  fileName=f.name.replace(/\.epub$/i,'');
+  const st=document.getElementById('status'); st.textContent='읽는 중...';
+  try{ await loadEpub(f); }catch(err){ console.error(err); st.textContent='열 수 없는 EPUB이에요: '+err.message; }
+});
+
+async function loadEpub(file){
+  zip=await JSZip.loadAsync(file);
+  const cf=zip.file('META-INF/container.xml'); if(!cf) throw new Error('container.xml이 없어요');
+  const cdoc=new DOMParser().parseFromString(await cf.async('string'),'application/xml');
+  const rf=cdoc.getElementsByTagName('rootfile')[0]; if(!rf) throw new Error('rootfile이 없어요');
+  opfPath=decodeURIComponent(rf.getAttribute('full-path')).replace(/^\/+/,''); opfDir=dirname(opfPath);
+  opfDoc=new DOMParser().parseFromString((await zip.file(opfPath).async('string')).replace(/^\ufeff/,''),'application/xml');
+  if(opfDoc.getElementsByTagName('parsererror').length) throw new Error('content.opf를 읽을 수 없어요(XML 오류)');
+  const dcT=opfDoc.getElementsByTagNameNS('http://purl.org/dc/elements/1.1/','title')[0];
+  bookTitle=dcT?clean(dcT.textContent):'';
+  const dcA=opfDoc.getElementsByTagNameNS('http://purl.org/dc/elements/1.1/','creator')[0];
+  bookAuthor=dcA?clean(dcA.textContent):'';
+  const man={};
+  for(const it of opfDoc.getElementsByTagNameNS(NS_OPF,'item')) man[it.getAttribute('id')]={href:it.getAttribute('href'),type:it.getAttribute('media-type')||'',props:it.getAttribute('properties')||''};
+  spine=[];
+  for(const ir of opfDoc.getElementsByTagNameNS(NS_OPF,'itemref')){
+    const m=man[ir.getAttribute('idref')]; if(!m) continue;
+    if(!/html/.test(m.type)) continue;
+    const path=resolvePath(opfDir,m.href); if(!zip.file(path)) continue;
+    if(/(^|\/)(nav|toc)\.x?html$/i.test(path)&&/\bnav\b/.test(m.props)) continue;
+    spine.push({id:ir.getAttribute('idref'),href:m.href,path});
+  }
+  if(!spine.length) throw new Error('챕터 파일을 못 찾았어요');
+  oldToc=new Map(); oldDepth=new Map(); oldList=new Map(); tocInfo={ncx:null,nav:null};
+  for(const id in man){
+    const m=man[id];
+    if(m.type==='application/x-dtbncx+xml') tocInfo.ncx={id,href:m.href,path:resolvePath(opfDir,m.href)};
+    if(/\bnav\b/.test(m.props)) tocInfo.nav={id,href:m.href,path:resolvePath(opfDir,m.href)};
+  }
+  let oldCount=0,oldBroken=0;
+  try{
+    if(tocInfo.nav&&zip.file(tocInfo.nav.path)){
+      const nd=new DOMParser().parseFromString(await zip.file(tocInfo.nav.path).async('string'),'application/xhtml+xml');
+      const nav=[...nd.getElementsByTagName('nav')].find(n=>(n.getAttribute('epub:type')||'')==='toc')||nd.getElementsByTagName('nav')[0];
+      if(nav) for(const a of nav.getElementsByTagName('a')){ const p=resolvePath(dirname(tocInfo.nav.path),a.getAttribute('href')||''); oldCount++; if(!zip.file(p)) oldBroken++; else { let d=0; for(let n=a.parentNode;n&&n!==nav;n=n.parentNode) if(n.nodeName.toLowerCase()==='ol') d++; d=Math.max(0,d-1); if(!oldToc.has(p)){ oldToc.set(p,clean(a.textContent)); oldDepth.set(p,d); } if(!oldList.has(p)) oldList.set(p,[]); oldList.get(p).push({t:clean(a.textContent),d}); } }
+    }
+    if(!oldCount&&tocInfo.ncx&&zip.file(tocInfo.ncx.path)){
+      const xd=new DOMParser().parseFromString(await zip.file(tocInfo.ncx.path).async('string'),'application/xml');
+      for(const np of xd.getElementsByTagName('navPoint')){
+        const lab=np.getElementsByTagName('text')[0],ct=np.getElementsByTagName('content')[0]; if(!ct) continue;
+        const p=resolvePath(dirname(tocInfo.ncx.path),ct.getAttribute('src')||''); oldCount++;
+        if(!zip.file(p)) oldBroken++; else { let d=0; for(let n=np.parentNode;n;n=n.parentNode) if(n.nodeName==='navPoint') d++; const tt=clean(lab?lab.textContent:''); if(!oldToc.has(p)){ oldToc.set(p,tt); oldDepth.set(p,d); } if(!oldList.has(p)) oldList.set(p,[]); oldList.get(p).push({t:tt,d}); }
+      }
+    }
+  }catch(e){ console.warn('기존 목차 읽기 실패',e); }
+  for(const s of spine) s.info=analyze(await zip.file(s.path).async('string'),s.path);
+  { const cnt=new Map(); for(const s of spine){ const t=s.info.title; if(t) cnt.set(t,(cnt.get(t)||0)+1); } for(const s of spine) s.info.titleCommon=!!s.info.title&&cnt.get(s.info.title)>=3; }
+  for(const s of spine) s.isTocPage=(s.info.len<3000)&&/^\s*(목\s*차|차\s*례|contents|table of contents)\s*$/i.test(s.info.first||'');
+  { const s0=spine[0], f0=zip.file(s0.path); s0.svgCover=null;
+    if(f0){ const str=await f0.async('string'); const m=str.match(/<svg[\s\S]*?<image[^>]*?href\s*=\s*["']([^"']+)["']/i); if(m&&!s0.info.len) s0.svgCover=m[1]; } }
+  document.getElementById('svgCoverRow').style.display=spine[0].svgCover?'block':'none';
+  spine.forEach((s,i)=>{ s.isTitleOnly=!s.isTocPage&&s.info.len>0&&s.info.len<40&&!s.info.hasImg&&i<spine.length-1; });
+  { const n=spine.filter(s=>s.isTocPage).length, m=spine.filter(s=>s.isTitleOnly).length;
+    document.getElementById('tocPageStep').style.display=(n||m||spine[0].svgCover)?'block':'none';
+    document.getElementById('tocPageRow').style.display=n?'block':'none'; document.getElementById('tocPageCount').textContent=n;
+    document.getElementById('titlePageRow').style.display=m?'block':'none'; document.getElementById('titlePageCount').textContent=m; }
+  document.getElementById('main').style.display='block';
+  document.getElementById('bookTitle').textContent=(bookTitle||fileName)+' · 챕터 파일 '+spine.length+'개';
+  { const t0=bookTitle||fileName; document.getElementById('saveName').value=(bookAuthor&&!/^\s*[\[［【]/.test(t0))?('['+bookAuthor+'] '+t0):t0; }
+  document.getElementById('oldTocInfo').textContent=oldCount?('기존 목차: '+oldCount+'줄'+(oldBroken?(' (그중 '+oldBroken+'줄은 없는 파일을 가리켜요)'):'')+' - 아래에서 고쳐서 다시 저장할 수 있어요.'):'기존 목차가 없어요. 새로 만들어요.';
+  document.getElementById('status').textContent='불러왔어요. 아래에서 목차를 확인하세요.';
+  rebuildEntries();
+}
+
+function analyze(str,path){
+  let doc=new DOMParser().parseFromString(str,'application/xhtml+xml');
+  if(doc.getElementsByTagName('parsererror').length) doc=new DOMParser().parseFromString(str,'text/html');
+  const body=doc.body||doc.getElementsByTagName('body')[0];
+  const text=clean(body?body.textContent:'');
+  const heads=[...doc.querySelectorAll('h1,h2,h3')].map(h=>({text:clean(h.textContent),id:h.getAttribute('id')||''}));
+  const tt=doc.getElementsByTagName('title')[0];
+  let title=tt?clean(tt.textContent):''; const base=path.split('/').pop().replace(/\.[^.]+$/,'');
+  if(GENERIC.test(title)||title===base) title='';
+  let first='';
+  for(const el of doc.querySelectorAll('p,span,h1,h2,h3,h4,div')){
+    if(el.tagName.toLowerCase()==='div'&&el.children.length) continue;
+    const t=clean(el.textContent); if(t){ first=t; break; }
+  }
+  return {text,len:text.length,heads,title,first:first.length>40?first.slice(0,40)+'…':first,firstShort:first.length<=40,base,hasImg:!!doc.querySelector('img,svg,image')};
+}
+
+const SYMONLY=/^[^\p{L}\p{N}]+$/u;
+function kindOf(s,e){
+  const i=s.info; if(e.hIdx!=null) return '';
+  if(s.isTocPage) return ['책 속 목차 페이지','#8a5a00'];
+  if(i.len<40&&!i.hasImg) return ['제목만 있는 페이지(글자 거의 없음)','#6b6680'];
+  if(!i.heads.some(h=>h.text)&&SYMONLY.test(i.first||'')) return ['이어지는 본문(제목 없음) — 보통 목차에 안 넣어요','#b3261e'];
+  return '';
+}
+function pickTitle(s,e){
+  const src=document.getElementById('titleSource').value, info=s.info;
+  if(e.preset!=null&&src==='auto') return e.preset;
+  const heading=e.hIdx!=null?info.heads[e.hIdx].text:(info.heads[0]||{}).text||'';
+  const ex=oldToc.get(s.path)||'';
+  const map={heading,titleTag:info.title,firstLine:info.firstShort?info.first:'',existing:ex,fileName:info.base};
+  if(src!=='auto') return map[src]||'';
+  return (e.hIdx!=null?heading:(ex||heading||(info.titleCommon?'':info.title)||(info.firstShort&&!SYMONLY.test(info.first)?info.first:'')||info.base))||info.base;
+}
+
+function rebuildEntries(){
+  const ph=document.getElementById('perHeading').checked;
+  entries=[];
+  spine.forEach((s,si)=>{
+    const info=s.info, heads=info.heads.filter(h=>h.text);
+    if(ph&&heads.length>=2){
+      info.heads.forEach((h,hi)=>{ if(!h.text) return; entries.push({si,hIdx:hi,title:'',include:true,depth:oldDepth.get(s.path)||0}); });
+    }else{
+      const inc=oldToc.size>0?oldToc.has(s.path):(heads.length>0||info.len>=150);
+      const lst=[]; for(const it of (oldList.get(s.path)||[])) if(!lst.some(x=>x.t===it.t&&x.d===it.d)) lst.push(it);
+      if(lst.length>1) lst.forEach(it=>entries.push({si,hIdx:null,title:'',include:true,depth:it.d,preset:it.t}));
+      else entries.push({si,hIdx:null,title:'',include:inc,depth:oldDepth.get(s.path)||0});
+    }
+  });
+  autoTitles(); srcDesc();
+}
+function autoTitles(){ for(const e of entries) e.title=pickTitle(spine[e.si],e); render(); }
+function fillBlank(){ let n=0; for(const e of entries){ if(e.include&&!e.title.trim()){ n++; e.title=n+'화'; } } render(); }
+const SRC_DESC={auto:'기존 목차가 있으면 그 이름 → 없으면 본문 제목 → 첫 줄 → 파일 이름 순서로 찾아요. 잘 모르겠으면 이거.',heading:'본문 안에 큰 글씨 제목(h1~h3)으로 적힌 글자를 써요.',titleTag:'파일 맨 위 숨은 이름(<title>)을 써요. 앱에 따라 "Section0001" 같은 게 들어있기도 해요.',firstLine:'각 파일 본문의 맨 첫 줄(짧을 때만)을 제목으로 써요. 첫 줄에 "1화"가 적혀있는 책에 좋아요.',existing:'원래 목차에 적혀있던 이름을 그대로 써요. 링크만 깨진 경우에 좋아요.',fileName:'파일 이름을 그대로 써요. 마지막 수단이에요.'};
+function srcDesc(){ document.getElementById('srcDesc').textContent=SRC_DESC[document.getElementById('titleSource').value]; }
+function dropImgOnly(){ let n=0; for(const e of entries){ const i=spine[e.si].info; if(e.include&&!i.len&&i.hasImg){ e.include=false; n++; } } render(); alert(n+'줄을 뺐어요.'); }
+function stripBrackets(){ for(const e of entries) e.title=e.title.replace(/^[<＜〈《\[]\s*(.*?)\s*[>＞〉》\]]$/,'$1'); render(); }
+function cands(e){ const s=spine[e.si],info=s.info,o=[]; const add=(k,v)=>{ v=(v||'').trim(); if(v&&!o.some(x=>x[1]===v)) o.push([k,v]); };
+  add('제목',e.hIdx!=null?info.heads[e.hIdx].text:(info.heads[0]||{}).text); add('원래목차',oldToc.get(s.path)); add('첫줄',info.firstShort?info.first:''); add(info.titleCommon?'공통이름':'페이지명',info.title); add('파일',info.base); return o; }
+function dep(i,d){ entries[i].depth=Math.max(0,Math.min(3,(entries[i].depth||0)+d)); render(); }
+function setAll(v){ entries.forEach(e=>e.include=v); render(); }
+
+function render(){
+  const box=document.getElementById('list');
+  box.innerHTML=entries.map((e,i)=>{
+    const s=spine[e.si],info=s.info;
+    const hint=esc((s.isTocPage?'[책 속 목차 페이지] ':'')+s.path.split('/').pop()+' · '+(e.hIdx!=null?'제목 '+(e.hIdx+1)+' · ':'')+(info.len?info.len.toLocaleString()+'자 · ':(info.hasImg?'이미지 · ':''))+(info.first||''));
+    return `<div class="toc-row ${e.include?'':'off'}" style="padding-left:${(e.depth||0)*18}px"><span class="num">${i+1}</span>
+      <input type="checkbox" ${e.include?'checked':''} onchange="entries[${i}].include=this.checked;render()">
+      <div class="toc-body">${(()=>{const k=kindOf(s,e);return k?`<div style="font-size:.74rem;font-weight:700;color:${k[1]};margin-bottom:3px;">● ${k[0]}</div>`:'';})()}<input type="text" value="${esc(e.title)}" placeholder="(제목 없음)" oninput="entries[${i}].title=this.value"><div class="chips">${cands(e).map(c=>`<button class="chip" onclick="entries[${i}].title=this.dataset.v;render()" data-v="${esc(c[1])}"><small>${c[0]}</small>${esc(c[1])}</button>`).join('')}</div><div class="hint">${hint}</div><div class="chips"><button class="chip" style="background:#fff" onclick="dep(${i},-1)">◀ 상위로</button><button class="chip" style="background:#fff" onclick="dep(${i},1)">▶ 하위로 넣기</button></div></div></div>`;
+  }).join('');
+  const n=entries.filter(e=>e.include).length;
+  document.getElementById('status').textContent='목차에 들어갈 줄 '+n+'개 / 전체 '+entries.length+'개';
+}
+
+// v4: 어떤 합본 도구(calibre epubmerge 등)는 <metadata> 안에 <manifest>/<spine>/<guide>를 넣고 닫아서 opf 구조가 틀림.
+//     엄격한 앱은 이런 파일을 못 엶 -> 저장할 때 package 바로 아래로 옮겨서 바로잡음. (비표준 origrootfile 항목도 제거)
+function fixOpfStructure(){
+  const md=opfDoc.getElementsByTagNameNS(NS_OPF,'metadata')[0]; if(!md) return;
+  const pkg=opfDoc.documentElement, ref=md.nextSibling;
+  for(const name of ['manifest','spine','guide']){ const el=[...md.children].find(c=>c.localName===name); if(el) pkg.insertBefore(el,ref); }
+  for(const it of [...opfDoc.getElementsByTagNameNS(NS_OPF,'item')]) if(it.getAttribute('media-type')==='origrootfile/xml') it.parentNode.removeChild(it);
+}
+// v8: 표지 연결 보정 - opf에 <meta name="cover">가 없으면(서재 썸네일/표지 인식이 안 됨) 표지 이미지를 찾아서 연결.
+//     찾는 순서: manifest에서 id/파일명에 cover가 들어간 이미지 -> 첫 챕터 페이지 안의 이미지. 이미 있으면 아무것도 안 함.
+async function ensureCoverMeta(){
+  const md=opfDoc.getElementsByTagNameNS(NS_OPF,'metadata')[0], man=opfDoc.getElementsByTagNameNS(NS_OPF,'manifest')[0]; if(!md||!man) return '';
+  const metas=[...md.getElementsByTagNameNS(NS_OPF,'meta')];
+  const items=[...man.getElementsByTagNameNS(NS_OPF,'item')];
+  const hasProp=items.some(i=>/\bcover-image\b/.test(i.getAttribute('properties')||''));
+  const cm=metas.find(m=>m.getAttribute('name')==='cover');
+  const isImg=i=>/^image\//.test(i.getAttribute('media-type')||'');
+  // v10: cover-image 속성이 이미지가 아닌 항목(예: cover.xhtml)에 붙어 있으면 제거 (서재 표지가 안 뜨는 원인)
+  let cleaned=false;
+  items.forEach(i=>{ const pr=i.getAttribute('properties')||''; if(/\bcover-image\b/.test(pr)&&!isImg(i)){ const np=pr.replace(/\bcover-image\b/,'').trim(); if(np) i.setAttribute('properties',np); else i.removeAttribute('properties'); cleaned=true; } });
+  const hasProp2=items.some(i=>/\bcover-image\b/.test(i.getAttribute('properties')||''));
+  const cmItem=cm&&items.find(i=>i.getAttribute('id')===cm.getAttribute('content'));
+  // v10: meta cover가 '이미지 항목'을 가리킬 때만 정상으로 인정 (v9는 아이디만 있으면 통과시켜서 xhtml을 가리켜도 못 고쳤음)
+  if(cmItem&&isImg(cmItem)){
+    if(!/\bcover-image\b/.test(cmItem.getAttribute('properties')||'')){
+      items.forEach(i=>{ const pr=i.getAttribute('properties')||''; if(/\bcover-image\b/.test(pr)){ const np=pr.replace(/\bcover-image\b/,'').trim(); if(np) i.setAttribute('properties',np); else i.removeAttribute('properties'); } });
+      cmItem.setAttribute('properties',((cmItem.getAttribute('properties')||'')+' cover-image').trim());
+      return '표지 연결을 보정했어요.';
+    }
+    return cleaned?'표지 연결을 보정했어요.':'';
+  }
+  let it=items.find(i=>isImg(i)&&/cover/i.test((i.getAttribute('id')||'')+' '+(i.getAttribute('href')||'')));
+  if(!it&&spine.length){
+    const f=zip.file(spine[0].path);
+    if(f){ const str=await f.async('string'); const m=str.match(/(?:src|href)\s*=\s*["']([^"']+\.(?:jpe?g|png|gif|webp))["']/i);
+      if(m){ const tp=resolvePath(dirname(spine[0].path),m[1]); it=items.find(i=>isImg(i)&&resolvePath(opfDir,i.getAttribute('href')||'')===tp); } }
+  }
+  if(!it) return '';
+  if(cm) cm.setAttribute('content',it.getAttribute('id'));
+  else { const m=opfDoc.createElementNS(NS_OPF,'meta'); m.setAttribute('name','cover'); m.setAttribute('content',it.getAttribute('id')); md.appendChild(m); }
+  items.forEach(i=>{ if(i!==it){ const pr=i.getAttribute('properties')||''; if(/\bcover-image\b/.test(pr)){ const np=pr.replace(/\bcover-image\b/,'').trim(); if(np) i.setAttribute('properties',np); else i.removeAttribute('properties'); } } });
+  if(!/\bcover-image\b/.test(it.getAttribute('properties')||'')) it.setAttribute('properties',((it.getAttribute('properties')||'')+' cover-image').trim());
+  return '표지 연결을 보정했어요.';
+}
+async function exportEpub(){
+  const dropToc=document.getElementById('dropTocPages')&&document.getElementById('dropTocPages').checked;
+  const sel=entries.filter(e=>e.include&&!(dropToc&&spine[e.si].isTocPage));
+  if(!sel.length){ alert('목차에 넣을 줄이 하나도 없어요.'); return; }
+  const fragOf=new Map(), needId={};
+  for(const e of sel){ if(e.hIdx==null) continue; const h=spine[e.si].info.heads[e.hIdx]; if(h.id) fragOf.set(e.si+':'+e.hIdx,h.id); else (needId[e.si]=needId[e.si]||[]).push(e.hIdx); }
+  for(const si in needId){
+    const s=spine[si]; let str=await zip.file(s.path).async('string');
+    const ms=[...str.matchAll(/<h[1-3](?=[\s>])[^>]*>/gi)];
+    if(ms.length!==s.info.heads.length) continue;
+    for(const hi of needId[si].slice().sort((a,b)=>b-a)){
+      const m=ms[hi], nid='utsho-toc-'+hi; if(/\sid\s*=/.test(m[0])) continue;
+      str=str.slice(0,m.index)+m[0].replace(/>$/,' id="'+nid+'">')+str.slice(m.index+m[0].length);
+      fragOf.set(si+':'+hi,nid);
+    }
+    zip.file(s.path,str);
+  }
+  const rows=sel.map(e=>{ const s=spine[e.si]; return {title:clean(e.title)||s.info.base,path:s.path,depth:e.depth||0,frag:e.hIdx!=null?fragOf.get(e.si+':'+e.hIdx):null}; });
+  { let prev=-1; for(const r of rows){ r.depth=Math.max(0,Math.min(r.depth,prev+1)); prev=r.depth; } }
+  fixOpfStructure();
+  const coverMsg=await ensureCoverMeta();
+  if(document.getElementById('fixSvgCover')&&document.getElementById('fixSvgCover').checked&&spine[0].svgCover){
+    const s0=spine[0]; const old=await zip.file(s0.path).async('string'); const tm=old.match(/<title>([\s\S]*?)<\/title>/i);
+    zip.file(s0.path,'<?xml version="1.0" encoding="utf-8"?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="ko"><head><meta charset="utf-8"/><title>'+(tm?tm[1]:'Cover')+'</title><style>@page{padding:0;margin:0}html,body{margin:0;padding:0}.cover-page{text-align:center;margin:0;padding:0}.cover-page img{width:100%;display:block}</style></head><body><div class="cover-page" epub:type="cover"><img src="'+s0.svgCover+'" alt="Cover"/></div></body></html>\n');
+  }
+  const dropTitle=document.getElementById('dropTitlePages')&&document.getElementById('dropTitlePages').checked;
+  const isDropped=s=>(dropToc&&s.isTocPage)||(dropTitle&&s.isTitleOnly);
+  // 제목만 있는 페이지: 목차 줄은 남기고, 링크는 뒤따르는 첫 본문 페이지로 옮김
+  for(const r of rows){ const si0=spine.findIndex(x=>x.path===r.path); if(si0<0||!(dropTitle&&spine[si0].isTitleOnly)) continue; let j=si0+1; while(j<spine.length&&isDropped(spine[j])) j++; if(j<spine.length){ r.path=spine[j].path; r.frag=null; } }
+  if(dropToc||dropTitle){ const ids=new Set(spine.filter(isDropped).map(s=>s.id)); for(const ir of [...opfDoc.getElementsByTagNameNS(NS_OPF,'itemref')]) if(ids.has(ir.getAttribute('idref'))) ir.parentNode.removeChild(ir); }
+  const uidAttr=opfDoc.documentElement.getAttribute('unique-identifier');
+  let ident=null;
+  for(const d of opfDoc.getElementsByTagNameNS('http://purl.org/dc/elements/1.1/','identifier')){ if(!uidAttr||d.getAttribute('id')===uidAttr){ ident=d; break; } }
+  let uid=ident?clean(ident.textContent):'';
+  const metadata=opfDoc.getElementsByTagNameNS(NS_OPF,'metadata')[0];
+  if(!uid){
+    uid='urn:uuid:'+crypto.randomUUID();
+    const d=opfDoc.createElementNS('http://purl.org/dc/elements/1.1/','dc:identifier'); d.setAttribute('id','BookId'); d.textContent=uid; metadata.insertBefore(d,metadata.firstChild);
+    opfDoc.documentElement.setAttribute('unique-identifier','BookId');
+  }
+  const book=bookTitle||fileName;
+  const manifest=opfDoc.getElementsByTagNameNS(NS_OPF,'manifest')[0];
+  const usedIds=new Set([...manifest.getElementsByTagNameNS(NS_OPF,'item')].map(i=>i.getAttribute('id')));
+  const navPath=tocInfo.nav?tocInfo.nav.path:(opfDir?opfDir+'/':'')+'nav.xhtml';
+  const ncxPath=tocInfo.ncx?tocInfo.ncx.path:(opfDir?opfDir+'/':'')+'toc.ncx';
+  const link=(fromPath,r)=>relPath(dirname(fromPath),r.path)+(r.frag?'#'+encodeURIComponent(r.frag):'');
+  const navList=(()=>{ let i=0; const rec=d=>{ let h='<ol>\n'; while(i<rows.length&&rows[i].depth>=d){ const r=rows[i++]; h+='<li><a href="'+link(navPath,r)+'">'+esc(r.title)+'</a>'; if(i<rows.length&&rows[i].depth>d) h+='\n'+rec(d+1); h+='</li>\n'; } return h+'</ol>'; }; return rec(0); })();
+  zip.file(navPath,`<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="ko" xml:lang="ko">
+<head><meta charset="utf-8" /><title>목차</title></head>
+<body>
+  <nav epub:type="toc" id="toc">
+    <h1>목차</h1>
+    ${navList}
+  </nav>
+</body>
+</html>
+`);
+  const maxDepth=Math.max(...rows.map(r=>r.depth))+1;
+  const pts=(()=>{ let i=0,po=0; const rec=d=>{ let h=''; while(i<rows.length&&rows[i].depth>=d){ const r=rows[i++]; const my=++po; const inner=(i<rows.length&&rows[i].depth>d)?'\n'+rec(d+1):''; h+='    <navPoint id="np'+my+'" playOrder="'+my+'">\n      <navLabel><text>'+esc(r.title)+'</text></navLabel>\n      <content src="'+link(ncxPath,r)+'" />'+inner+'\n    </navPoint>\n'; } return h; }; return rec(0); })();
+  zip.file(ncxPath,`<?xml version="1.0" encoding="utf-8"?>
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1" xml:lang="ko">
+  <head>
+    <meta name="dtb:uid" content="${esc(uid)}" />
+    <meta name="dtb:depth" content="${maxDepth}" />
+    <meta name="dtb:totalPageCount" content="0" />
+    <meta name="dtb:maxPageNumber" content="0" />
+  </head>
+  <docTitle><text>${esc(book)}</text></docTitle>
+  <navMap>
+${pts}
+  </navMap>
+</ncx>
+`);
+  const uniqId=base=>{ let id=base,n=1; while(usedIds.has(id)) id=base+(++n); usedIds.add(id); return id; };
+  const mk=(id,href,type,props)=>{ const it=opfDoc.createElementNS(NS_OPF,'item'); it.setAttribute('id',id); it.setAttribute('href',href); it.setAttribute('media-type',type); if(props) it.setAttribute('properties',props); manifest.appendChild(it); return id; };
+  for(const it of [...manifest.getElementsByTagNameNS(NS_OPF,'item')]){
+    const pr=it.getAttribute('properties')||'';
+    if(/\bnav\b/.test(pr)&&!(tocInfo.nav&&it.getAttribute('id')===tocInfo.nav.id)){ const np=pr.replace(/\bnav\b/,'').trim(); if(np) it.setAttribute('properties',np); else it.removeAttribute('properties'); }
+  }
+  if(!tocInfo.nav) mk(uniqId('nav'),relPath(opfDir,navPath),'application/xhtml+xml','nav');
+  else { const it=[...manifest.getElementsByTagNameNS(NS_OPF,'item')].find(i=>i.getAttribute('id')===tocInfo.nav.id); const pr=it.getAttribute('properties')||''; if(!/\bnav\b/.test(pr)) it.setAttribute('properties',(pr+' nav').trim()); it.setAttribute('media-type','application/xhtml+xml'); }
+  const ncxId=tocInfo.ncx?tocInfo.ncx.id:mk(uniqId('ncx'),relPath(opfDir,ncxPath),'application/x-dtbncx+xml');
+  opfDoc.getElementsByTagNameNS(NS_OPF,'spine')[0].setAttribute('toc',ncxId);
+  opfDoc.documentElement.setAttribute('version','3.0');
+  if(![...metadata.getElementsByTagNameNS(NS_OPF,'meta')].some(m=>m.getAttribute('property')==='dcterms:modified')){
+    const m=opfDoc.createElementNS(NS_OPF,'meta'); m.setAttribute('property','dcterms:modified'); m.textContent=new Date().toISOString().replace(/\.\d+Z$/,'Z'); metadata.appendChild(m);
+  }
+  zip.file(opfPath,'<?xml version="1.0" encoding="utf-8"?>\n'+new XMLSerializer().serializeToString(opfDoc.documentElement));
+  const out=new JSZip();
+  out.file('mimetype','application/epub+zip',{compression:'STORE',createFolders:false});
+  for(const n of Object.keys(zip.files).filter(n=>n!=='mimetype'&&!zip.files[n].dir)) out.file(n,await zip.file(n).async('uint8array'),{compression:'DEFLATE',createFolders:false});
+  const blob=await out.generateAsync({type:'blob',mimeType:'application/epub+zip'});
+  const sn=(document.getElementById('saveName')&&document.getElementById('saveName').value)||'';
+  const base=((sn.trim()||bookTitle||fileName).replace(/[\\/:*?"<>|]+/g,' ').replace(/\s+/g,' ').replace(/\.epub$/i,'').trim())||'목차수정';
+  saveAs(blob,base+'.epub');
+  document.getElementById('status').textContent='저장했어요: '+base+'.epub (목차 '+rows.length+'줄) '+coverMsg;
+  await loadEpub(blob);
+}
+
+// v11: 기호 바 - 마지막으로 누른 제목 칸에 ⋆ 넣기/감싸기 + 클립보드 복사
+let lastIn=null;
+document.addEventListener('focusin',function(e){ const t=e.target; if(t&&t.matches&&t.matches('#list .toc-body input[type=text]')) lastIn=t; });
+function symMsg(m){ const el=document.getElementById('symMsg'); if(el) el.textContent=m; }
+function copySym(t){
+  function fb(){ const ta=document.createElement('textarea'); ta.value=t; ta.setAttribute('readonly',''); ta.style.cssText='position:fixed;left:-9999px;top:0;opacity:0;'; document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0,t.length); let ok=false; try{ ok=document.execCommand('copy'); }catch(e){} document.body.removeChild(ta); return ok; }
+  if(navigator.clipboard&&window.isSecureContext){ return navigator.clipboard.writeText(t).then(()=>true).catch(()=>fb()); }
+  return Promise.resolve(fb());
+}
+function putSym(wrap){
+  const SYM='\u22C6';
+  const inputs=[...document.querySelectorAll('#list .toc-body input[type=text]')];
+  const el=(lastIn&&inputs.indexOf(lastIn)>=0)?lastIn:null;
+  const idx=el?inputs.indexOf(el):-1;
+  if(wrap){
+    if(!el){ symMsg('먼저 바꿀 제목 칸을 눌러 주세요.'); return; }
+    let v=el.value.trim(); const w=v.length>=2&&v.charAt(0)===SYM&&v.charAt(v.length-1)===SYM;
+    el.value=w?v.slice(1,-1).trim():SYM+v+SYM;
+    entries[idx].title=el.value; el.focus(); el.setSelectionRange(el.value.length,el.value.length);
+    symMsg(w?'⋆를 뺐어요: '+el.value:'⋆로 감쌌어요: '+el.value); return;
+  }
+  let ins=false;
+  if(el){
+    const a=el.selectionStart==null?el.value.length:el.selectionStart, b=el.selectionEnd==null?a:el.selectionEnd;
+    el.value=el.value.slice(0,a)+SYM+el.value.slice(b); entries[idx].title=el.value;
+    el.focus(); el.setSelectionRange(a+1,a+1); ins=true;
+  }
+  copySym(SYM).then(ok=>{
+    if(ok&&el) el.focus();
+    symMsg(ins?(ok?'⋆를 넣고 복사도 했어요.':'⋆를 넣었어요. (복사는 안 됐어요)'):(ok?'⋆를 복사했어요. 제목 칸에 붙여넣으세요.':'복사가 안 돼요. 제목 칸을 먼저 누른 뒤 ⋆를 눌러 주세요.'));
+  });
+}
+
+// v12: 권 이름 한 번에 정리 / Cover 굵은 기울임 글씨
+function stripVolNames(){
+  const S='\u22C6'; let n=0;
+  for(const e of entries){
+    const t=(e.title||'').trim(); if(!t) continue;
+    if(t.charAt(0)===S&&t.charAt(t.length-1)===S) continue;
+    const m=t.match(/(\d+)\s*권\s*$/);
+    if(m){ e.title=S+m[1]+'권'+S; n++; }
+  }
+  render(); alert(n?n+'줄을 ⋆N권⋆으로 바꿨어요.':'바꿀 권 줄이 없어요. ("…1권"으로 끝나는 제목만 바뀌어요)');
+}
+function styleCover(){
+  const C=String.fromCodePoint(0x1D63E,0x1D664,0x1D66B,0x1D65A,0x1D667); let n=0;
+  const NAME=/^(cover|cover\s*page|cover\s*image|표지|커버)$/i;
+  for(const e of entries){ if(NAME.test((e.title||'').trim())){ e.title=C; n++; } }
+  if(!n&&entries.length){
+    const e=entries[0], s0=spine[e.si], inf=s0&&s0.info||{};
+    if(s0&&(/cover/i.test(s0.path.split('/').pop())||(!inf.len&&inf.hasImg))){ e.title=C; n++; }
+  }
+  render(); alert(n?'Cover 글씨를 바꿨어요: '+C:'표지 줄을 못 찾았어요. 첫 줄 제목 칸에 Cover라고 직접 쓴 뒤 다시 눌러 주세요.');
+}
+</script>
+</body>
+</html>
