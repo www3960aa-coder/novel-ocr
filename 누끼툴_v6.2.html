@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>제목 누끼 툴</title>
+<!--
+  제목 누끼 툴 v6.2 (화수 색 칸 추가: 기본은 로고 색 따라감)
+  제목 누끼 툴 v6
+  [v6] ①②③ 탭으로 분리, 사용법/설명 접기·펴기(💡), 맨 위에 고정되는 '소설 속 미리보기'(이펍을 올리면 내 이펍 첫 화 그대로, 없으면 예시) — 로고 크기·여백·화수 제목 색을 바로 확인.
+  제목 누끼 툴 v5
+  [v5] 누끼 조절 슬라이더 기본 잠금(🔒) + '조절값 되돌리기'(한 단계씩) + 두 손가락 줌 중에는 그리기/선택 무시(touch-action: pinch-zoom).
+  제목 누끼 툴 v4
+  [v4] 🎯 표지에서 색 따기(스포이트) 추가 — 표지를 탭해 그 색을 글씨색으로. 3번에 '화수 제목 색도 바꾸기' 옵션(css 끝에 규칙 추가, 다시 넣어도 중복 안 됨).
+  제목 누끼 툴 v3
+  [v3] 맨 위 사용법 카드 + 슬라이더별 설명 + 기본값 되돌리기 버튼(2번/3번).
+  제목 누끼 툴 v2
+  [v2] 지우개 개선: 붓(문지르기, 크기 조절) / 덩어리 탭(비스듬한 얼룩을 한 번 탭해서 통째로 지움) / 네모 중 선택.
+  제목 누끼 툴 v1
+  [v1] 표지 이미지에서 제목 글씨만 따서(누끼) 투명 PNG로 저장하거나, 이펍 각 화 맨 위에 바로 넣어주는 도구.
+   - 표지를 고르고 → 제목 부분을 손가락으로 드래그해서 영역 선택 → 자동으로 글씨만 추출
+   - 글씨 종류(밝은 글씨/어두운 글씨), 민감도, 얼룩 제거, 흐림 제거, 글씨색을 슬라이더로 조절
+   - 미리보기에서 드래그하면 그 영역을 지움(지우개). 되돌리기 가능
+   - PNG 저장 / 이펍에 넣기(각 화 맨 위, 표지·목차 제외) — 이펍은 새 파일로 저장(원본 안 건드림)
+   - 외부 라이브러리: JSZip(cdnjs) 하나만 사용
+-->
+<style>
+:root{--p:#9a4640;--bg:#f6f4f3;--bd:#ddd;--tx:#222;--sub:#777}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:-apple-system,"Pretendard","Noto Sans KR",sans-serif;font-size:15px;line-height:1.5}
+.wrap{max-width:720px;margin:0 auto;padding:16px 16px 60px}
+h1{font-size:1.25rem;margin:4px 0 2px}
+.sub{color:var(--sub);font-size:.82rem;margin:0 0 14px}
+.card{background:#fff;border:1px solid var(--bd);border-radius:14px;padding:14px;margin:12px 0}
+.card h2{font-size:.95rem;margin:0 0 10px}
+.step{display:inline-block;background:var(--p);color:#fff;border-radius:50%;width:22px;height:22px;text-align:center;line-height:22px;font-size:.78rem;margin-right:6px}
+button,.btn{background:var(--p);color:#fff;border:0;border-radius:10px;padding:10px 14px;font-size:.9rem;font-weight:700;cursor:pointer}
+button.ghost{background:#fff;color:var(--p);border:1.5px solid var(--p)}
+button:disabled{opacity:.4}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0}
+label.sl{display:flex;align-items:center;gap:8px;font-size:.82rem;margin:6px 0}
+label.sl span{width:92px;flex-shrink:0}
+label.sl input[type=range]{flex:1}
+label.sl b{width:34px;text-align:right;font-weight:600;color:var(--sub)}
+canvas{max-width:100%;border-radius:8px;touch-action:pinch-zoom;display:block}
+.locked{opacity:.55}
+.cwrap{background:#222;border-radius:8px;padding:4px;text-align:center}
+.pwrap{border-radius:8px;padding:6px;text-align:center;border:1px dashed var(--bd)}
+.hint{font-size:.78rem;color:var(--sub);margin:6px 0 0}
+.seg{display:inline-flex;border:1.5px solid var(--p);border-radius:10px;overflow:hidden}
+.seg button{border-radius:0;background:#fff;color:var(--p);padding:8px 12px}
+.seg button.on{background:var(--p);color:#fff}
+input[type=file]{font-size:.85rem;max-width:100%}
+.msg{font-size:.82rem;margin-top:8px;color:#2a6b2a;white-space:pre-line}
+.err{color:#b00020}
+.tabs{display:flex;gap:6px;padding:8px 0 6px}
+.tabs button{flex:1;background:#fff;color:var(--p);border:1.5px solid #e3d3d1;border-radius:14px;padding:11px 2px;font-size:.86rem}
+.tabs button.on{background:var(--p);color:#fff;border-color:var(--p)}
+.tabs button#tHint{flex:0 0 auto;padding:11px 10px}
+.tabs button#tHint:not(.on){opacity:.5}
+#stick{position:sticky;top:0;z-index:20;background:var(--bg);margin:0 -16px;padding:0 16px 6px}
+.npv{background:#fff;border:1px solid var(--bd);border-radius:12px;overflow:hidden;display:none}
+.npv-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 8px 4px 10px;font-size:.76rem;color:var(--sub);background:#faf7f6}
+.npv-h button{padding:3px 10px;font-size:.74rem;font-weight:600;white-space:nowrap;flex-shrink:0}
+#npvFrame{display:block;width:100%;max-width:400px;height:130px;border:0;margin:0 auto;background:#fff}
+.cl{font-size:.82rem;width:48px}.cs{width:40px;height:32px;border:0;background:none;padding:0}.hx{font-size:.8rem;color:var(--sub)}.ck{font-size:.8rem;white-space:nowrap;display:flex;align-items:center;gap:3px}.ck input{margin:0}
+.sm{padding:8px 10px!important;font-size:.82rem!important}
+.seg button{padding:7px 10px;font-size:.82rem}
+body.erasing .tabs{display:none}
+body.erasing #npvFrame{height:84px}
+#fs{position:fixed;inset:0;z-index:200;background:#161616;flex-direction:column}
+#fs.on{display:flex!important}
+#fsBar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:6px 8px;background:#fff;border-bottom:1px solid var(--bd)}
+#fsBody{flex:1;display:flex;overflow:auto;padding:4px}
+#fsBody canvas{margin:auto;flex-shrink:0;max-width:none}
+#fsBody.pan canvas{pointer-events:none}
+.panel{display:none}.panel.on{display:block}
+body.nohint .tip{display:none}
+details.guide{background:#fff8f6;border:1px solid var(--bd);border-radius:14px;padding:10px 14px;margin:8px 0}
+details.guide summary{cursor:pointer;font-size:.92rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>제목 누끼 툴 v6.2</h1>
+  <p class="sub">표지에서 제목 글씨만 따서 PNG로 저장하거나, 이펍 각 화 맨 위에 바로 넣어요.</p>
+
+  <details class="guide" id="guide">
+    <summary><b>📖 사용법</b> <span style="color:var(--sub);font-size:.8rem">(눌러서 펴기/접기)</span></summary>
+    <ol style="margin:8px 0 0;padding-left:20px;font-size:.84rem;line-height:1.7">
+      <li><b>① 표지</b> 탭: 표지를 고르고 제목 글씨 부분을 <b>손가락으로 드래그</b>해서 네모로 감싸요. 넉넉히 잡아도 돼요.</li>
+      <li><b>② 누끼 조절</b> 탭: 글씨만 자동으로 따져요. 글씨가 흰색·밝은색이면 "밝은 글씨", 어두운색이면 "어두운 글씨". 남은 얼룩은 <b>지우개</b>로 지워요.</li>
+      <li>글씨색은 <b>🎯 표지에서 색 따기</b>로 표지의 원하는 부분을 탭하면 그 색 그대로 써요.</li>
+      <li><b>③ 이펍에 넣기</b> 탭: 이펍을 올리고 크기·여백을 정한 뒤 <b>"이펍에 넣고 저장"</b>. 원본은 그대로, 새 파일(_로고.epub)로 저장돼요.</li>
+      <li>②·③ 탭 맨 위에 <b>소설 속 미리보기</b>가 고정돼 있어요. 로고 크기와 화수 제목이 실제로 어떻게 보이는지 바로 확인하세요. (이펍을 올리면 내 이펍의 첫 화 그대로 보여요.)</li>
+    </ol>
+    <p class="hint tip">슬라이더는 <b>처음엔 잠겨 있어요.</b> 기본값 그대로 쓰고, 결과가 이상할 때만 🔓 잠금을 풀고 조금씩 만지세요. 위쪽 <b>💡</b> 버튼으로 각 항목 밑의 작은 설명을 숨기거나 다시 볼 수 있어요.</p>
+  </details>
+
+  <div id="stick">
+    <div class="tabs">
+      <button id="t1" class="on">① 표지</button><button id="t2">② 누끼 조절</button><button id="t3">③ 이펍에 넣기</button><button id="tHint" class="on" title="설명 보이기/숨기기">💡</button>
+    </div>
+    <div id="fs" style="display:none">
+  <div id="fsBar">
+    <div class="seg"><button id="fsBrush" class="on">붓</button><button id="fsBlob">덩어리</button><button id="fsRect">네모</button></div>
+    <button class="ghost sm" id="fsUndo">↩</button>
+    <button class="ghost sm" id="fsZm">－</button><button class="ghost sm" id="fsZp">＋</button><button class="ghost sm" id="fsPan">✋ 이동</button>
+    <label class="ck" id="fsBrW">크기 <input type="range" id="fsBr" min="2" max="40" value="12" style="width:90px"></label>
+    <div class="seg"><button id="fsW" class="on">흰</button><button id="fsD">어두운</button></div>
+    <button class="sm" id="fsClose">닫기 ✕</button>
+  </div>
+  <div id="fsBody"></div>
+</div>
+    <div class="npv" id="npv">
+      <div class="npv-h"><span>📱 소설 속 미리보기 <span id="npvNote"></span></span><span style="display:flex;gap:6px"><button class="ghost lk" id="bLock2">🔒 잠김</button><button class="ghost" id="npvTog">접기</button></span></div>
+      <iframe id="npvFrame" sandbox=""></iframe>
+    </div>
+  </div>
+
+  <div class="card panel on" id="p1">
+    <h2><span class="step">1</span>표지 이미지 고르기</h2>
+    <input type="file" id="fCover" accept="image/*">
+    <p class="hint tip">이미지가 뜨면 <b>제목 글씨 부분을 손가락(마우스)으로 드래그</b>해서 네모로 감싸주세요. 글씨 주변을 넉넉히 잡아도 돼요.</p>
+    <div class="cwrap" style="margin-top:8px"><canvas id="cv" width="10" height="10"></canvas></div>
+    <div class="row"><button class="ghost" id="bAll">전체 선택</button><button class="ghost" id="bPick">🎯 표지에서 색 따기</button><span class="hint" id="selInfo">영역 없음</span></div>
+    <div class="row"><button id="nx1">다음: 누끼 조절 ▶</button></div>
+    <p class="hint" id="pickHint" style="display:none;color:#c0392b"><b>표지 위에서 따고 싶은 색 부분을 한 번 탭하세요.</b> 탭한 색이 글씨색(로고·제목)으로 들어가요.</p>
+  </div>
+
+  <div class="card panel" id="p2">
+    <h2><span class="step">2</span>누끼 조절</h2>
+    <div class="row">
+      <button class="ghost lk sm" id="bLock">🔒 잠겨 있어요</button>
+      <button class="ghost" id="bSetUndo" style="padding:9px 9px;font-size:.84rem">↩ 조절값 되돌리기</button>
+    </div>
+    <p class="hint tip" id="lockHint">슬라이더가 <b>잠겨 있어서</b> 스크롤·줌 중에 잘못 건드려도 안 바뀌어요. 값을 바꾸려면 🔒 버튼을 눌러 잠금을 풀어요(미리보기 줄·아래쪽에도 같은 버튼이 있어요).</p>
+    <div class="row">
+      <span class="cl">글씨색</span>
+      <input type="color" id="cCol" value="#9a4640" class="cs"><span id="hexTxt" class="hx">#9a4640</span>
+      <label class="ck"><input type="checkbox" id="cKeep"> 원래 색 유지</label>
+    </div>
+    <div class="row">
+      <span class="cl">테두리</span>
+      <input type="color" id="oCol" value="#5a2a26" class="cs"><span id="oTxt" class="hx">#5a2a26</span>
+      <label class="ck"><input type="checkbox" id="oOn"> 테두리 넣기</label>
+    </div>
+    <div class="row">
+      <span class="cl">화수색</span>
+      <input type="color" id="tcol" value="#9a4640" class="cs"><span id="tcolTxt" class="hx">#9a4640</span>
+      <button class="ghost" id="tcolAuto" style="padding:6px 9px;font-size:.78rem">로고 색</button>
+      <label class="ck"><input type="checkbox" id="cTitleCol"> 이펍에 적용</label>
+    </div>
+    <p class="hint tip" style="margin:-2px 0 6px">화수색: <b>이펍에 적용</b>을 체크하면 이펍의 화수 제목이 이 색으로 바뀌어요. 기본은 로고 색이에요.</p>
+    <div class="row">
+      <span style="font-size:.82rem">글씨 종류</span>
+      <div class="seg"><button id="mLight" class="on">밝은 글씨</button><button id="mDark">어두운 글씨</button></div>
+    </div>
+    <label class="sl"><span>민감도</span><input type="range" id="sTh" min="10" max="120" value="45"><b id="vTh">45</b></label>
+    <p class="hint tip" style="margin:-2px 0 6px 100px">글씨로 인식하는 기준이에요. <b>글씨가 끊기면 낮추고</b>, 배경 얼룩이 많이 잡히면 높여요.</p>
+    <label class="sl"><span>얼룩 제거</span><input type="range" id="sSp" min="0" max="1500" step="20" value="300"><b id="vSp">300</b></label>
+    <p class="hint tip" style="margin:-2px 0 6px 100px">이 크기보다 작은 조각은 얼룩으로 보고 지워요. <b>작은 점이 남으면 올려요.</b></p>
+    <label class="sl"><span>흐림 제거</span><input type="range" id="sHz" min="0" max="140" value="40"><b id="vHz">40</b></label>
+    <p class="hint tip" style="margin:-2px 0 6px 100px">글씨 주변의 흐릿한 번짐을 지워요. 올리면 더 깔끔하지만 글씨 끝이 얇아질 수 있어요.</p>
+    <label class="sl"><span>가장자리 두께</span><input type="range" id="sDl" min="0" max="6" value="3"><b id="vDl">3</b></label>
+    <p class="hint tip" style="margin:-2px 0 6px 100px">글씨 테두리 두께예요. 테두리를 넣으면 이 값만큼 바깥 띠가 생겨요.</p>
+    <div class="pwrap" id="pw"><canvas id="pv" width="10" height="10"></canvas></div>
+    <div class="row"><button class="ghost sm" id="bFull">⛶ 크게 지우기 (전체 화면)</button></div>
+    <div class="row">
+      <span class="cl">지우개</span>
+      <div class="seg"><button id="eBrush" class="on">붓</button><button id="eBlob">덩어리 탭</button><button id="eRect">네모</button></div>
+      <button class="ghost sm" id="bUndo">↩ 지우개</button>
+    </div>
+    <label class="sl" id="rowBr"><span>붓 크기</span><input type="range" id="sBr" min="2" max="40" value="12"><b id="vBr">12</b></label>
+    <p class="hint tip" id="eHint"></p>
+    <div class="row">
+      <span class="cl">배경</span>
+      <div class="seg"><button id="bBgW" class="on">흰색</button><button id="bBgD">어두운색</button></div>
+      <button class="ghost sm lk" id="bLock3">🔒 잠김</button>
+    </div>
+    <div class="row"><button id="bPng" class="sm" disabled>PNG 저장</button><button class="ghost sm" id="bRst2">조절값 기본으로</button><button class="sm" id="nx2">다음: 이펍 ▶</button></div>
+  </div>
+
+  <div class="card panel" id="p3">
+    <h2><span class="step">3</span>이펍에 넣기 (선택)</h2>
+    <input type="file" id="fEpub" accept=".epub,application/epub+zip">
+    <label class="sl"><span>로고 너비(%)</span><input type="range" id="sW" min="10" max="100" value="36"><b id="vW">36</b></label>
+    <p class="hint tip" style="margin:-2px 0 6px 100px">화면 너비 대비 로고 크기예요. <b>기본 36%</b>면 무난해요.</p>
+    <label class="sl"><span>위 여백(em)</span><input type="range" id="sMt" min="0" max="6" step="0.5" value="1.5"><b id="vMt">1.5</b></label>
+    <p class="hint tip" style="margin:-2px 0 6px 100px">로고 위쪽 빈 공간이에요.</p>
+    <label class="sl"><span>아래 여백(em)</span><input type="range" id="sMb" min="0" max="6" step="0.5" value="0"><b id="vMb">0</b></label>
+    <p class="hint tip" style="margin:-2px 0 6px 100px">로고와 화수 제목 사이 간격이에요. 붙어 보이면 올려요.</p>
+    <div class="row"><button id="bEpub" disabled>이펍에 넣고 저장</button><button class="ghost" id="bRst3">기본값으로</button></div>
+    <p class="hint tip">표지·목차 페이지는 빼고, 본문 각 화 맨 위(화수 제목 앞)에 넣어요. 원본 이펍은 그대로이고 새 파일로 저장돼요.</p>
+    <div class="msg" id="msg"></div>
+  </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+let img=null, scale=1, sel=null, mode='light', bg='#fff', erase=[], out=null; // out: {canvas, bbox}
+let cropRGBA=null, cropW=0, cropH=0;
+const cv=$('cv'), cx=cv.getContext('2d'), pv=$('pv'), px=pv.getContext('2d');
+
+function say(t,err){const m=$('msg');m.textContent=t;m.className='msg'+(err?' err':'');}
+
+// ---------- 표지 불러오기 ----------
+$('fCover').onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const im=new Image(); im.onload=()=>{img=im; drawCover(); sel=null; erase=[]; $('selInfo').textContent='영역 없음'; $('bPng').disabled=true;};
+  im.src=URL.createObjectURL(f);
+};
+function drawCover(){
+  const maxW=Math.min(680,window.innerWidth-40);
+  scale=Math.min(1,maxW/img.width);
+  cv.width=Math.round(img.width*scale); cv.height=Math.round(img.height*scale);
+  cx.drawImage(img,0,0,cv.width,cv.height);
+  if(sel){cx.strokeStyle='#ff3b6b';cx.lineWidth=2;cx.setLineDash([6,4]);cx.strokeRect(sel.x*scale,sel.y*scale,sel.w*scale,sel.h*scale);cx.setLineDash([]);}
+}
+function pos(c,e){const r=c.getBoundingClientRect();return{x:(e.clientX-r.left)*c.width/r.width,y:(e.clientY-r.top)*c.height/r.height};}
+let drag=null;
+// 두 손가락(줌) 입력이면 그리기/선택을 무시 — 줌하다가 선이 그어지는 것 방지
+const touches=new Set();let multi=false;
+function track(e){
+  if(e.pointerType!=='touch')return false;
+  if(e.type==='pointerdown'){touches.add(e.pointerId);if(touches.size>1){multi=true;drag=null;stroke=null;edrag=null;}}
+  else{touches.delete(e.pointerId);if(touches.size===0)multi=false;}
+  return multi;}
+let pickMode=false, pickBack=false;
+cv.onpointerdown=e=>{if(track(e)){drawCover();return;}if(!img)return;
+  if(pickMode){const q=pos(cv,e);pickColor(q.x/scale,q.y/scale);return;}
+  cv.setPointerCapture(e.pointerId);drag=pos(cv,e);};
+cv.onpointermove=e=>{if(multi||!drag)return;const p=pos(cv,e);
+  sel=normRect(drag.x/scale,drag.y/scale,p.x/scale,p.y/scale);drawCover();};
+cv.onpointerup=e=>{if(track(e)||!drag)return;const p=pos(cv,e);const s=normRect(drag.x/scale,drag.y/scale,p.x/scale,p.y/scale);drag=null;
+  if(s.w>=12&&s.h>=12){sel=s;erase=[];process();}else{drawCover();}};
+function normRect(x1,y1,x2,y2){
+  const x=Math.max(0,Math.min(x1,x2)),y=Math.max(0,Math.min(y1,y2));
+  const w=Math.min(img.width,Math.max(x1,x2))-x,h=Math.min(img.height,Math.max(y1,y2))-y;
+  return{x:Math.round(x),y:Math.round(y),w:Math.round(w),h:Math.round(h)};}
+$('bAll').onclick=()=>{if(!img)return;sel={x:0,y:0,w:img.width,h:img.height};erase=[];process();};
+
+
+// ---------- 스포이트 ----------
+var pickColor;
+pickColor=function(x,y){
+  const c=document.createElement('canvas');c.width=img.width;c.height=img.height;const g=c.getContext('2d');g.drawImage(img,0,0);
+  const r=3,x0=Math.max(0,Math.round(x)-r),y0=Math.max(0,Math.round(y)-r),w=Math.min(img.width-x0,2*r+1),h=Math.min(img.height-y0,2*r+1);
+  const d=g.getImageData(x0,y0,w,h).data;let R=0,G=0,B=0,n=w*h;for(let i=0;i<n;i++){R+=d[i*4];G+=d[i*4+1];B+=d[i*4+2];}
+  const hex='#'+[R,G,B].map(v=>Math.round(v/n).toString(16).padStart(2,'0')).join('');
+  $('cCol').value=hex;$('hexTxt').textContent=hex;$('cKeep').checked=false;
+  pickMode=false;$('bPick').classList.add('ghost');$('pickHint').style.display='none';cv.style.cursor='';
+  if(out)render();
+  if(pickBack){pickBack=false;goTab(2);}
+}
+function startPick(){if(!img){alert('먼저 ① 표지에서 표지를 골라주세요.');return false;}pickMode=!pickMode;$('pickHint').style.display=pickMode?'block':'none';cv.style.cursor=pickMode?'crosshair':'';return true;}
+$('bPick').onclick=()=>{startPick();};
+
+$('cCol').addEventListener('input',()=>{$('hexTxt').textContent=$('cCol').value;});
+// ---------- 누끼 처리 ----------
+function minmaxFilter(src,w,h,r,isMin){
+  const tmp=new Float32Array(w*h), dst=new Float32Array(w*h), pick=isMin?Math.min:Math.max;
+  for(let y=0;y<h;y++){for(let x=0;x<w;x++){let v=isMin?1e9:-1e9;const a=Math.max(0,x-r),b=Math.min(w-1,x+r);
+    for(let k=a;k<=b;k++)v=pick(v,src[y*w+k]);tmp[y*w+x]=v;}}
+  for(let y=0;y<h;y++){const a=Math.max(0,y-r),b=Math.min(h-1,y+r);for(let x=0;x<w;x++){let v=isMin?1e9:-1e9;
+    for(let k=a;k<=b;k++)v=pick(v,tmp[k*w+x]);dst[y*w+x]=v;}}
+  return dst;}
+function boxBlur(src,w,h,r){
+  const tmp=new Float32Array(w*h), dst=new Float32Array(w*h);
+  for(let y=0;y<h;y++){for(let x=0;x<w;x++){let s=0,n=0;const a=Math.max(0,x-r),b=Math.min(w-1,x+r);
+    for(let k=a;k<=b;k++){s+=src[y*w+k];n++;}tmp[y*w+x]=s/n;}}
+  for(let y=0;y<h;y++){const a=Math.max(0,y-r),b=Math.min(h-1,y+r);for(let x=0;x<w;x++){let s=0,n=0;
+    for(let k=a;k<=b;k++){s+=tmp[k*w+x];n++;}dst[y*w+x]=s/n;}}
+  return dst;}
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+
+function process(){
+  if(!img||!sel)return;
+  $('selInfo').textContent=`선택: ${sel.w}×${sel.h}px`;
+  const c=document.createElement('canvas');c.width=sel.w;c.height=sel.h;
+  const g=c.getContext('2d');g.drawImage(img,sel.x,sel.y,sel.w,sel.h,0,0,sel.w,sel.h);
+  const id=g.getImageData(0,0,sel.w,sel.h);cropRGBA=id;cropW=sel.w;cropH=sel.h;
+  render();
+}
+function render(){
+  if(!cropRGBA)return;
+  const w=cropW,h=cropH,d=cropRGBA.data,n=w*h;
+  const th=+$('sTh').value, minSz=+$('sSp').value, haze=+$('sHz').value, dil=+$('sDl').value;
+  const lum=new Float32Array(n), sat=new Float32Array(n);
+  for(let i=0;i<n;i++){const R=d[i*4],G=d[i*4+1],B=d[i*4+2];lum[i]=.3*R+.59*G+.11*B;sat[i]=Math.max(R,G,B)-Math.min(R,G,B);}
+  const light=mode==='light';
+  // 글씨 밝기 기준(밝은 글씨: 상위 3%, 어두운 글씨: 하위 3%) — 글씨보다 한참 덜 밝은/어두운 배경 얼룩은 빼기
+  const hist=new Uint32Array(256);for(let i=0;i<n;i++)hist[Math.max(0,Math.min(255,Math.round(lum[i])))]++;
+  let cum=0,pL=light?255:0;
+  if(light){for(let v=255;v>=0;v--){cum+=hist[v];if(cum>=n*0.03){pL=v;break;}}}else{for(let v=0;v<256;v++){cum+=hist[v];if(cum>=n*0.03){pL=v;break;}}}
+  const bgl=boxBlur(minmaxFilter(lum,w,h,12,light),w,h,12);
+  const a=new Float32Array(n);
+  for(let i=0;i<n;i++){
+    const diff=light?(lum[i]-bgl[i]):(bgl[i]-lum[i]);
+    let v=clamp((diff-th)/60);
+    if(light) v*=clamp((190-sat[i])/70);
+    v*=light?clamp((lum[i]-(pL-85))/40):clamp(((pL+85)-lum[i])/40);
+    a[i]=v;
+  }
+  // 연결 덩어리: 작은 얼룩 제거
+  const lab=new Int32Array(n), keep=new Uint8Array(n);let L=0;const stack=[];
+  for(let i=0;i<n;i++){
+    if(a[i]>0.3&&!lab[i]){L++;let cnt=0;const comp=[];stack.push(i);lab[i]=L;
+      while(stack.length){const p=stack.pop();comp.push(p);cnt++;const x=p%w,y=(p-x)/w;
+        for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;const nx=x+dx,ny=y+dy;
+          if(nx<0||ny<0||nx>=w||ny>=h)continue;const q=ny*w+nx;if(a[q]>0.3&&!lab[q]){lab[q]=L;stack.push(q);}}}
+      if(cnt>=minSz)for(const p of comp)keep[p]=1;}
+  }
+  // 두께(팽창)
+  let m=keep;
+  if(dil>0){m=new Uint8Array(n);
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++){if(!keep[y*w+x])continue;
+      for(let dy=-dil;dy<=dil;dy++){const ny=y+dy;if(ny<0||ny>=h)continue;for(let dx=-dil;dx<=dil;dx++){const nx=x+dx;if(nx<0||nx>=w)continue;m[ny*w+nx]=1;}}}}
+  // 지우개 적용 (네모 / 붓 / 덩어리 탭)
+  const er=new Uint8Array(n);
+  const paintCircle=(cx0,cy0,r)=>{const r2=r*r;for(let y=Math.max(0,Math.floor(cy0-r));y<=Math.min(h-1,Math.ceil(cy0+r));y++)for(let x=Math.max(0,Math.floor(cx0-r));x<=Math.min(w-1,Math.ceil(cx0+r));x++){if((x-cx0)*(x-cx0)+(y-cy0)*(y-cy0)<=r2)er[y*w+x]=1;}};
+  for(const r of erase){
+    if(r.t==='rect'){const x0=Math.max(0,Math.floor(r.x)),y0=Math.max(0,Math.floor(r.y)),x1=Math.min(w,Math.ceil(r.x+r.w)),y1=Math.min(h,Math.ceil(r.y+r.h));
+      for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++)er[y*w+x]=1;}
+    else if(r.t==='brush'){for(let k=0;k<r.pts.length;k++){const a0=r.pts[Math.max(0,k-1)],b0=r.pts[k];const steps=Math.max(1,Math.ceil(Math.hypot(b0.x-a0.x,b0.y-a0.y)/(r.r/2)));
+      for(let q=0;q<=steps;q++)paintCircle(a0.x+(b0.x-a0.x)*q/steps,a0.y+(b0.y-a0.y)*q/steps,r.r);}}
+    else if(r.t==='blob'){ // 눌린 곳(또는 근처 12px 안)의 글씨 덩어리를 통째로 지움
+      let id=0,best=1e9;const sx=Math.round(r.x),sy=Math.round(r.y);
+      for(let dy=-12;dy<=12;dy++)for(let dx=-12;dx<=12;dx++){const x=sx+dx,y=sy+dy;if(x<0||y<0||x>=w||y>=h)continue;const q=y*w+x;
+        if(lab[q]&&m[q]){const dd=dx*dx+dy*dy;if(dd<best){best=dd;id=lab[q];}}}
+      if(id){const cm=new Uint8Array(n);for(let i=0;i<n;i++)if(lab[i]===id)cm[i]=1;
+        for(let y=0;y<h;y++)for(let x=0;x<w;x++){if(!cm[y*w+x])continue;
+          for(let dy=-dil-1;dy<=dil+1;dy++){const ny=y+dy;if(ny<0||ny>=h)continue;for(let dx=-dil-1;dx<=dil+1;dx++){const nx=x+dx;if(nx<0||nx>=w)continue;er[ny*w+nx]=1;}}}}}
+  }
+  const col=hex2rgb($('cCol').value), keepCol=$('cKeep').checked;
+  const o=document.createElement('canvas');o.width=w;o.height=h;const og=o.getContext('2d');const od=og.createImageData(w,h);
+  const fa=new Float32Array(n);
+  for(let i=0;i<n;i++){
+    let al=m[i]&&!er[i]?clamp(a[i]*1.25):0;
+    al=al*255; if(haze>0) al=clamp((al-haze*1.7)/(255-haze*1.7-55+55))*255; // 흐림 제거
+    if(al<8)al=0;
+    fa[i]=al;
+  }
+  // 테두리: 글씨 바깥으로 번진 띠를 다른 색으로
+  const useOut=$('oOn').checked;let oa=fa;const oc=hex2rgb($('oCol').value);
+  if(useOut){const r=Math.max(1,dil);oa=boxBlur(minmaxFilter(fa,w,h,r,false),w,h,1);for(let i=0;i<n;i++){oa[i]=Math.min(255,oa[i]*1.6);if(oa[i]<fa[i])oa[i]=fa[i];if(er[i])oa[i]=0;}}
+  let x0=w,y0=h,x1=-1,y1=-1;
+  for(let i=0;i<n;i++){
+    const al=oa[i];od.data[i*4+3]=al;
+    let R,G,B;
+    if(keepCol){R=d[i*4];G=d[i*4+1];B=d[i*4+2];}else{R=col[0];G=col[1];B=col[2];}
+    if(useOut&&al>0){const t=fa[i]/al;R=R*t+oc[0]*(1-t);G=G*t+oc[1]*(1-t);B=B*t+oc[2]*(1-t);}
+    od.data[i*4]=R;od.data[i*4+1]=G;od.data[i*4+2]=B;
+    if(al>20){const x=i%w,y=(i-x)/w;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;}
+  }
+  og.putImageData(od,0,0);
+  out={full:o,bbox:x1>=0?{x:x0,y:y0,w:x1-x0+1,h:y1-y0+1}:null,w,h};
+  drawPreview();syncTcol();updNovel();
+  $('bPng').disabled=!out.bbox;$('bEpub').disabled=!(out.bbox&&epubZip);
+}
+function hex2rgb(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];}
+let pvScale=1,fsZ=1;
+function drawPreview(){
+  if(!out)return;
+  const full=$('fs').classList.contains('on');const maxW=full?window.innerWidth-14:Math.min(660,window.innerWidth-70);pvScale=full?Math.min(10,Math.min(maxW/out.w,(window.innerHeight-110)/out.h)*fsZ):Math.min(1.5,maxW/out.w);
+  pv.width=Math.round(out.w*pvScale);pv.height=Math.round(out.h*pvScale);
+  $('pw').style.background=bg;$('fsBody').style.background=bg;
+  px.clearRect(0,0,pv.width,pv.height);
+  px.drawImage(out.full,0,0,pv.width,pv.height);
+}
+// 지우개 (붓 / 덩어리 탭 / 네모)
+let emode='brush', edrag=null, stroke=null;
+function setEMode(m){emode=m;['Brush','Blob','Rect'].forEach(k=>$('fs'+k).classList.toggle('on',k.toLowerCase()===m));$('fsBrW').style.display=m==='brush'?'flex':'none';['Brush','Blob','Rect'].forEach(k=>$('e'+k).classList.toggle('on',k.toLowerCase()===m));
+  $('rowBr').style.display=m==='brush'?'flex':'none';
+  $('eHint').innerHTML={brush:'<b>얼룩 위를 문지르면 지워져요.</b> 붓 크기는 위 슬라이더로 조절해요.',blob:'<b>얼룩을 한 번 탭하면</b> 이어진 덩어리가 통째로 지워져요. 비스듬한 얼룩에 편해요.',rect:'<b>드래그해서 네모로 감싼 곳</b>이 지워져요.'}[m];}
+$('eBrush').onclick=()=>setEMode('brush');$('eBlob').onclick=()=>setEMode('blob');$('eRect').onclick=()=>setEMode('rect');
+setEMode('brush');
+$('fsBrush').onclick=()=>setEMode('brush');$('fsBlob').onclick=()=>setEMode('blob');$('fsRect').onclick=()=>setEMode('rect');
+$('fsUndo').onclick=()=>{erase.pop();render();};
+$('fsBr').oninput=()=>{$('sBr').value=$('fsBr').value;$('vBr').textContent=$('fsBr').value;};
+$('fsW').onclick=()=>{$('bBgW').click();$('fsW').classList.add('on');$('fsD').classList.remove('on');};
+$('fsD').onclick=()=>{$('bBgD').click();$('fsD').classList.add('on');$('fsW').classList.remove('on');};
+$('fsZp').onclick=()=>{fsZ=Math.min(6,fsZ*1.5);drawPreview();};
+$('fsZm').onclick=()=>{fsZ=Math.max(1,fsZ/1.5);drawPreview();};
+$('fsPan').onclick=()=>{const on=$('fsBody').classList.toggle('pan');$('fsPan').classList.toggle('ghost',!on);$('fsPan').textContent=on?'✋ 이동 중':'✋ 이동';};
+$('bFull').onclick=()=>{fsZ=1;if(!out){alert('먼저 ① 표지에서 제목 영역을 골라주세요.');return;}
+  $('fs').classList.add('on');$('fsBody').appendChild(pv);$('fsBr').value=$('sBr').value;document.body.style.overflow='hidden';drawPreview();};
+$('fsClose').onclick=()=>{$('fsBody').classList.remove('pan');$('fs').classList.remove('on');$('pw').appendChild(pv);document.body.style.overflow='';drawPreview();};
+function overlay(){drawPreview();
+  if(stroke){px.fillStyle='rgba(0,160,255,.45)';const r=stroke.r*pvScale;for(const q of stroke.pts){px.beginPath();px.arc(q.x*pvScale,q.y*pvScale,r,0,7);px.fill();}}
+  if(edrag&&emode==='rect'&&edrag.cur){const a=edrag,b=edrag.cur;px.strokeStyle='#00a0ff';px.setLineDash([5,4]);px.lineWidth=2;px.strokeRect(Math.min(a.x,b.x),Math.min(a.y,b.y),Math.abs(b.x-a.x),Math.abs(b.y-a.y));px.setLineDash([]);}}
+pv.onpointerdown=e=>{if(track(e)){stroke=null;edrag=null;overlay();return;}if(!out)return;pv.setPointerCapture(e.pointerId);const p=pos(pv,e);
+  if(emode==='brush'){stroke={t:'brush',r:+$('sBr').value,pts:[{x:p.x/pvScale,y:p.y/pvScale}]};overlay();}
+  else if(emode==='blob'){erase.push({t:'blob',x:p.x/pvScale,y:p.y/pvScale});render();}
+  else{edrag={x:p.x,y:p.y,cur:p};}};
+pv.onpointermove=e=>{if(multi)return;const p=pos(pv,e);
+  if(stroke){stroke.pts.push({x:p.x/pvScale,y:p.y/pvScale});overlay();}
+  else if(edrag){edrag.cur=p;overlay();}};
+pv.onpointerup=e=>{if(track(e))return;
+  if(stroke){erase.push(stroke);stroke=null;render();}
+  else if(edrag){const a=edrag,b=pos(pv,e);edrag=null;const r={t:'rect',x:Math.min(a.x,b.x)/pvScale,y:Math.min(a.y,b.y)/pvScale,w:Math.abs(b.x-a.x)/pvScale,h:Math.abs(b.y-a.y)/pvScale};
+    if(r.w>2&&r.h>2)erase.push(r);render();}};
+$('bUndo').onclick=()=>{erase.pop();render();};
+$('bBgW').onclick=()=>{bg='#fff';$('bBgW').classList.add('on');$('bBgD').classList.remove('on');drawPreview();};
+$('bBgD').onclick=()=>{bg='#2a2a2a';$('bBgD').classList.add('on');$('bBgW').classList.remove('on');drawPreview();};
+$('mLight').onclick=()=>{mode='light';$('mLight').classList.add('on');$('mDark').classList.remove('on');render();};
+$('mDark').onclick=()=>{mode='dark';$('mDark').classList.add('on');$('mLight').classList.remove('on');render();};
+[['sBr','vBr'],['sTh','vTh'],['sSp','vSp'],['sHz','vHz'],['sDl','vDl'],['sW','vW'],['sMt','vMt'],['sMb','vMb']].forEach(([s,v])=>{$(s).oninput=()=>{$(v).textContent=$(s).value;if(['sTh','sSp','sHz','sDl'].includes(s))render();if(['sW','sMt','sMb'].includes(s))updNovel();};});
+$('cCol').oninput=render;$('cKeep').onchange=render;
+let oManual=false;
+function shade(h,f){const c=hex2rgb(h);return '#'+c.map(v=>Math.round(v*f).toString(16).padStart(2,'0')).join('');}
+$('oCol').addEventListener('input',()=>{oManual=true;$('oTxt').textContent=$('oCol').value;render();});
+$('oOn').onchange=()=>{if(!oManual){const base=$('cKeep').checked&&typeof logoAvg==='function'&&logoAvg()?logoAvg():$('cCol').value;$('oCol').value=shade(base,.5);$('oTxt').textContent=$('oCol').value;}render();};
+
+
+function resetVals(m){for(const [id,v] of m){$(id).value=v;const b=$('v'+id.slice(1));if(b)b.textContent=v;}}
+$('bRst2').onclick=()=>{resetVals([['sTh',45],['sSp',300],['sHz',40],['sDl',3]]);$('cCol').value='#9a4640';$('hexTxt').textContent='#9a4640';$('cKeep').checked=false;render();};
+$('bRst3').onclick=()=>{resetVals([['sW',36],['sMt',1.5],['sMb',0]]);updNovel();};
+// ---------- 결과 PNG ----------
+function logoCanvas(maxW=520){
+  const b=out.bbox;const s=Math.min(1,maxW/b.w);
+  const c=document.createElement('canvas');c.width=Math.round(b.w*s);c.height=Math.round(b.h*s);
+  c.getContext('2d').drawImage(out.full,b.x,b.y,b.w,b.h,0,0,c.width,c.height);return c;}
+function toBlob(c){return new Promise(r=>c.toBlob(r,'image/png'));}
+function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1500);}
+$('bPng').onclick=async()=>{if(!out||!out.bbox)return;download(await toBlob(logoCanvas(1000)),'title_logo.png');};
+
+// ---------- 이펍에 넣기 ----------
+let epubZip=null, epubName='book.epub';
+$('fEpub').onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{epubZip=await JSZip.loadAsync(await f.arrayBuffer());epubName=f.name;say('이펍을 불러왔어요: '+f.name);}
+  catch(err){epubZip=null;say('이펍을 열 수 없어요.',true);}
+  $('bEpub').disabled=!(out&&out.bbox&&epubZip);
+  loadPvSrc();
+};
+function dirOf(p){const i=p.lastIndexOf('/');return i<0?'':p.slice(0,i+1);}
+function relPath(from,to){ // from: file path, to: file path
+  const a=dirOf(from).split('/').filter(Boolean),b=to.split('/');const t=b.pop();
+  let i=0;while(i<a.length&&i<b.length&&a[i]===b[i])i++;
+  return '../'.repeat(a.length-i)+b.slice(i).concat(t).join('/');}
+function resolve(base,href){const parts=(dirOf(base)+decodeURIComponent(href.split('#')[0])).split('/');const o=[];for(const p of parts){if(p==='..')o.pop();else if(p!=='.'&&p!=='')o.push(p);}return o.join('/');}
+$('bEpub').onclick=async()=>{
+  try{
+    if(!out||!out.bbox||!epubZip)return;
+    const z=epubZip;
+    const cont=await z.file('META-INF/container.xml').async('string');
+    const opfPath=cont.match(/full-path="([^"]+)"/)[1];
+    let opf=await z.file(opfPath).async('string');
+    const man={};const re=/<item\b[^>]*>/g;let m;
+    while((m=re.exec(opf))){const t=m[0];const id=(t.match(/\bid="([^"]*)"/)||[])[1],href=(t.match(/\bhref="([^"]*)"/)||[])[1],mt=(t.match(/media-type="([^"]*)"/)||[])[1],pr=(t.match(/properties="([^"]*)"/)||[])[1]||'';
+      if(id)man[id]={href,mt,pr};}
+    const spine=[...opf.matchAll(/<itemref\b[^>]*idref="([^"]*)"/g)].map(x=>x[1]);
+    const imgName='title_logo.png', imgPath=dirOf(opfPath)+'images/'+imgName;
+    const blob=await toBlob(logoCanvas(520));
+    const wPct=+$('sW').value, mt=$('sMt').value, mb=$('sMb').value;
+    let n=0, skipped=[];
+    for(const id of spine){
+      const it=man[id];if(!it||!/xhtml|html/.test(it.mt)||/nav/.test(it.pr))continue;
+      const path=resolve(opfPath,it.href);const f=z.file(path);if(!f)continue;
+      let x=await f.async('string');
+      // 표지·목차 같은 페이지 건너뛰기: cover/nav/toc 이름, 또는 글자가 거의 없고 이미지만 있는 페이지
+      const plain=x.replace(/<head[\s\S]*?<\/head>/i,'').replace(/<[^>]+>/g,'').replace(/\s+/g,'');
+      if(/cover|toc|nav/i.test(path.split('/').pop())||plain.length<30||/<svg[\s>]/i.test(x)&&plain.length<60){skipped.push(path.split('/').pop());continue;}
+      x=x.replace(/<div class="title-logo"[\s\S]*?<\/div>/,''); // 이미 넣은 게 있으면 교체
+      const rel=relPath(path,imgPath);
+      const tag=logoTag(rel);
+      const hm=x.match(/<h[1-3]\b/i);
+      if(hm) x=x.replace(hm[0],tag+hm[0]);
+      else x=x.replace(/(<body\b[^>]*>)/i,'$1'+tag);
+      z.file(path,x);n++;
+    }
+    z.file(imgPath,blob);
+    if($('cTitleCol').checked){
+      const hex=$('tcol').value;let nc=0;
+      for(const id in man){const it=man[id];if(it.mt!=='text/css')continue;const cp=resolve(opfPath,it.href);const cf=z.file(cp);if(!cf)continue;
+        let css=await cf.async('string');css=css.replace(/\/\* 제목색 시작 \*\/[\s\S]*?\/\* 제목색 끝 \*\//,'');
+        css+=`\n/* 제목색 시작 */\nh1,h2,h3,h1 *,h2 *,h3 *,.chapter-title,.grad-tt{color:${hex} !important;-webkit-text-fill-color:${hex} !important;background:none !important;}\n/* 제목색 끝 */\n`;
+        z.file(cp,css);nc++;}
+      if(!nc)skipped.push('(css 없음: 제목 색 못 바꿈)');
+    }
+    if(!opf.includes('id="titlelogo"')){
+      const hrefRel=imgPath.slice(dirOf(opfPath).length);
+      opf=opf.replace('</manifest>',`<item id="titlelogo" href="${hrefRel}" media-type="image/png"/></manifest>`);
+      z.file(opfPath,opf);}
+    // mimetype 맨 앞, 무압축
+    const mime=await z.file('mimetype').async('string');
+    const nz=new JSZip();nz.file('mimetype',mime,{compression:'STORE'});
+    for(const name of Object.keys(z.files)){if(name==='mimetype'||z.files[name].dir)continue;nz.file(name,await z.file(name).async('uint8array'));}
+    const blobE=await nz.generateAsync({type:'blob',mimeType:'application/epub+zip',compression:'DEFLATE'});
+    download(blobE,epubName.replace(/\.epub$/i,'')+'_로고.epub');
+    say(`완료! ${n}개 화 맨 위에 로고를 넣었어요.`+(skipped.length?`\n건너뛴 페이지: ${skipped.join(', ')}`:''));
+    // 같은 이펍에 또 넣어도 중복되지 않게 새 zip 로 교체
+    epubZip=await JSZip.loadAsync(await blobE.arrayBuffer());
+  }catch(err){say('오류: '+err.message,true);}
+};
+
+// ---------- 조절값 잠금 / 되돌리기 ----------
+const LOCKS=['sTh','sSp','sHz','sDl','sBr','mLight','mDark'];
+let locked=true;
+function setLock(v){locked=v;
+  LOCKS.forEach(id=>{$(id).disabled=v;});
+  ['sTh','sSp','sHz','sDl','sBr'].forEach(id=>$(id).closest('label').classList.toggle('locked',v));
+  document.querySelectorAll('.lk').forEach(b=>{b.textContent=v?'🔒 잠김':'🔓 조절 중';});
+  $('lockHint').innerHTML=v?'슬라이더가 <b>잠겨 있어서</b> 스크롤·줌 중에 잘못 건드려도 안 바뀌어요. 값을 바꾸려면 위 버튼을 눌러 잠금을 풀어요.':'지금은 <b>조절할 수 있는 상태</b>예요. 다 하셨으면 다시 잠가두면 안전해요. 잘못 바꿨다면 "조절값 되돌리기"를 눌러요.';}
+document.querySelectorAll('.lk').forEach(b=>{b.onclick=()=>setLock(!locked);});
+const snap=()=>({sTh:$('sTh').value,sSp:$('sSp').value,sHz:$('sHz').value,sDl:$('sDl').value,sBr:$('sBr').value,cCol:$('cCol').value,cKeep:$('cKeep').checked,mode});
+let hist=[],last=snap();
+function commit(){const c=snap();if(JSON.stringify(c)===JSON.stringify(last))return;hist.push(last);if(hist.length>50)hist.shift();last=c;}
+['sTh','sSp','sHz','sDl','sBr','cCol','cKeep'].forEach(id=>$(id).addEventListener('change',commit));
+$('mLight').addEventListener('click',()=>setTimeout(commit,0));$('mDark').addEventListener('click',()=>setTimeout(commit,0));
+$('bRst2').addEventListener('click',()=>setTimeout(commit,0));
+$('bPick').addEventListener('click',()=>{});
+const _pc=pickColor;pickColor=function(x,y){_pc(x,y);commit();};
+$('bSetUndo').onclick=()=>{
+  if(!hist.length){alert('되돌릴 조절 내용이 없어요.');return;}
+  const v=hist.pop();last=v;
+  ['sTh','sSp','sHz','sDl','sBr'].forEach(id=>{$(id).value=v[id];const b=$('v'+id.slice(1));if(b)b.textContent=v[id];});
+  $('cCol').value=v.cCol;$('hexTxt').textContent=v.cCol;$('cKeep').checked=v.cKeep;
+  mode=v.mode;$('mLight').classList.toggle('on',mode==='light');$('mDark').classList.toggle('on',mode==='dark');
+  render();};
+[cv,pv].forEach(c=>c.addEventListener('pointercancel',e=>{touches.delete(e.pointerId);if(!touches.size)multi=false;drag=null;stroke=null;edrag=null;if(img)drawCover();if(out)drawPreview();}));
+setLock(true);
+
+// ---------- 탭 / 설명 / 소설 속 미리보기 ----------
+// 지우개 창이 화면에 들어오면 위 고정 영역(탭·미리보기)을 작게 줄여서 지우는 공간을 넓힘
+function chkErasing(){
+  const on=$('p2').classList.contains('on');
+  if(!on){document.body.classList.remove('erasing');return;}
+  const t=$('pw').getBoundingClientRect().top,er=document.body.classList.contains('erasing');
+  if(!er&&t<440)document.body.classList.add('erasing');
+  else if(er&&t>700)document.body.classList.remove('erasing');}
+addEventListener('scroll',chkErasing,{passive:true});
+function goTab(n){document.body.classList.remove('erasing');
+  [1,2,3].forEach(i=>{$('p'+i).classList.toggle('on',i===n);$('t'+i).classList.toggle('on',i===n);});
+  $('npv').style.display=n>1?'block':'none';$('bLock2').style.display=n===2?'':'none';
+  if(n>1)updNovel();
+  window.scrollTo(0,0);}
+[1,2,3].forEach(i=>{$('t'+i).onclick=()=>goTab(i);});
+$('nx1').onclick=()=>goTab(2);$('nx2').onclick=()=>goTab(3);
+$('tHint').onclick=()=>{document.body.classList.toggle('nohint');$('tHint').classList.toggle('on',!document.body.classList.contains('nohint'));};
+$('npvTog').onclick=()=>{const f=$('npvFrame');const hide=f.style.display!=='none';f.style.display=hide?'none':'block';$('npvTog').textContent=hide?'펴기':'접기';};
+$('cTitleCol').addEventListener('change',()=>updNovel());
+let tcolManual=false;
+function logoAvg(){ // 로고(불투명 부분)의 평균 색
+  if(!out||!out.bbox)return null;const b=out.bbox;const d=out.full.getContext('2d').getImageData(b.x,b.y,b.w,b.h).data;let R=0,G=0,B=0,n=0;
+  for(let i=0;i<d.length;i+=4){if(d[i+3]>200){R+=d[i];G+=d[i+1];B+=d[i+2];n++;}}
+  if(!n)return null;return '#'+[R,G,B].map(v=>Math.round(v/n).toString(16).padStart(2,'0')).join('');}
+function syncTcol(){
+  if(tcolManual)return;
+  const h=$('cKeep').checked?logoAvg():$('cCol').value;if(!h)return;
+  $('tcol').value=h;$('tcolTxt').textContent=h;}
+$('tcol').addEventListener('input',()=>{tcolManual=true;$('tcolTxt').textContent=$('tcol').value;updNovel();});
+$('tcolAuto').onclick=()=>{tcolManual=false;syncTcol();updNovel();};
+function logoTag(src){return `<div class="title-logo" style="text-align:center;margin:${$('sMt').value}em 0 ${$('sMb').value}em;text-indent:0;"><img src="${src}" alt="" style="width:${$('sW').value}%;max-width:260px;height:auto;"/></div>`;}
+let pvSrc=null;
+async function loadPvSrc(){
+  pvSrc=null;
+  if(epubZip){try{
+    const z=epubZip;const cont=await z.file('META-INF/container.xml').async('string');
+    const opfPath=cont.match(/full-path="([^"]+)"/)[1];const opf=await z.file(opfPath).async('string');
+    const man={};for(const m of opf.matchAll(/<item\b[^>]*>/g)){const t=m[0];const id=(t.match(/\bid="([^"]*)"/)||[])[1],href=(t.match(/\bhref="([^"]*)"/)||[])[1],mt=(t.match(/media-type="([^"]*)"/)||[])[1],pr=(t.match(/properties="([^"]*)"/)||[])[1]||'';if(id)man[id]={href,mt,pr};}
+    let css='';
+    for(const id in man){if(man[id].mt!=='text/css')continue;const f=z.file(resolve(opfPath,man[id].href));if(f)css+=(await f.async('string')).replace(/\/\* 제목색 시작 \*\/[\s\S]*?\/\* 제목색 끝 \*\//g,'')+'\n';}
+    css=css.replace(/@charset[^;]*;/g,'');
+    const spine=[...opf.matchAll(/<itemref\b[^>]*idref="([^"]*)"/g)].map(x=>x[1]);
+    for(const id of spine){
+      const it=man[id];if(!it||!/xhtml|html/.test(it.mt)||/nav/.test(it.pr))continue;
+      const path=resolve(opfPath,it.href);const f=z.file(path);if(!f)continue;const x=await f.async('string');
+      const plain=x.replace(/<head[\s\S]*?<\/head>/i,'').replace(/<[^>]+>/g,'').replace(/\s+/g,'');
+      if(/cover|toc|nav/i.test(path.split('/').pop())||plain.length<30||/<svg[\s>]/i.test(x)&&plain.length<60)continue;
+      const bm=x.match(/<body\b[^>]*>([\s\S]*)<\/body>/i);if(!bm)continue;
+      pvSrc={css,body:bm[1].slice(0,12000)};break;}
+  }catch(e){pvSrc=null;}}
+  updNovel();}
+let npT=null;
+function updNovel(){clearTimeout(npT);npT=setTimeout(doNovel,120);}
+function doNovel(){
+  const fr=$('npvFrame'),note=$('npvNote');
+  if(!out||!out.bbox){fr.srcdoc='<body style="font:14px sans-serif;color:#999;padding:24px;text-align:center">① 표지에서 제목 영역을 고르면<br>여기에 소설 화면이 나와요.</body>';note.textContent='';return;}
+  const src=logoCanvas(520).toDataURL('image/png'),hex=$('tcol').value;
+  const tcss=$('cTitleCol').checked?`h1,h2,h3,h1 *,h2 *,h3 *,.chapter-title,.grad-tt{color:${hex} !important;-webkit-text-fill-color:${hex} !important;background:none !important;}`:'';
+  let css,body;
+  if(pvSrc){css=pvSrc.css;body=pvSrc.body;note.textContent='· 내 이펍 첫 화';}
+  else{css='body{margin:0;padding:6% 9%;line-height:1.85;font-family:sans-serif;color:#2f2930;word-break:keep-all}h2{text-align:center;font-size:1.5em;margin:1.2em 0 1.5em}p{margin:0 0 1.9em}';
+    body='<h2>1화</h2><p>“대공성까지는 얼마나 남았지?”</p><p>“이제 곧 당도할 것입니다. 날씨가 차가우니 어서 마차 안으로 들어가 주십시오.”</p><p>충성스러운 대공의 기사는 뻔뻔할 정도로 같은 말을 반복했다.</p>';
+    note.textContent='· 예시';}
+  body=body.replace(/<div class="title-logo"[\s\S]*?<\/div>/,'');
+  const tag=logoTag(src),hm=body.match(/<h[1-3]\b/i);
+  body=hm?body.replace(hm[0],tag+hm[0]):tag+body;
+  fr.srcdoc=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><style>${css}\n${tcss}</style></head><body>${body}</body></html>`;
+}
+updNovel();
+// 테스트/디버그용
+window.__tool={goTab,setSel(r){sel=r;erase=[];process();},get out(){return out;},render};
+</script>
+</body>
+</html>
